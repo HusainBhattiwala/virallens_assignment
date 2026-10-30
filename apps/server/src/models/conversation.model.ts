@@ -8,7 +8,7 @@ const conversationSchema = new Schema(
   { timestamps: true },
 );
 
-conversationSchema.index({ user: 1, updatedAt: -1 });
+conversationSchema.index({ user: 1, updatedAt: -1, _id: -1 });
 
 export type ConversationRecord = InferSchemaType<typeof conversationSchema> & { _id: Types.ObjectId };
 

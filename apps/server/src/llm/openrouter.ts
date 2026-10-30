@@ -26,6 +26,11 @@ const SYSTEM_PROMPT = [
   "Reply in plain text without Markdown formatting, using short paragraphs.",
 ].join(" ");
 
+const TITLE_PROMPT = [
+  "Write a short title of at most six words that describes this customer support conversation.",
+  "Reply with the title only, without quotes or a trailing period.",
+].join(" ");
+
 const openrouter = new OpenRouter({
   apiKey: OPENROUTER_API_KEY,
   httpReferer: CLIENT_ORIGIN,
@@ -41,12 +46,12 @@ const toServiceError = (error: Error): Error => {
     : createHttpError(502, "The assistant is unavailable right now, please try again", details);
 };
 
-const requestCompletion = async (messages: ChatMessage[]): Promise<ChatResult> => {
+const requestCompletion = async (systemPrompt: string, messages: ChatMessage[]): Promise<ChatResult> => {
   try {
     return await openrouter.chat.send({
       chatRequest: {
         models: MODELS,
-        messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
+        messages: [{ role: "system", content: systemPrompt }, ...messages],
         stream: false,
       },
     });
@@ -55,14 +60,18 @@ const requestCompletion = async (messages: ChatMessage[]): Promise<ChatResult> =
   }
 };
 
-export const generateReply = async (messages: ChatMessage[]): Promise<string> => {
-  const result = await requestCompletion(messages);
+const complete = async (systemPrompt: string, messages: ChatMessage[]): Promise<string> => {
+  const result = await requestCompletion(systemPrompt, messages);
   const content = result.choices[0]?.message.content;
-  const reply = typeof content === "string" ? content.trim() : "";
+  const text = typeof content === "string" ? content.trim() : "";
 
-  if (!reply) {
+  if (!text) {
     throw createHttpError(502, "The assistant returned an empty reply, please try again", { expose: true });
   }
 
-  return reply;
+  return text;
 };
+
+export const generateReply = (messages: ChatMessage[]): Promise<string> => complete(SYSTEM_PROMPT, messages);
+
+export const generateTitle = (messages: ChatMessage[]): Promise<string> => complete(TITLE_PROMPT, messages);
