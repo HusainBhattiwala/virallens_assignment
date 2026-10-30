@@ -94,3 +94,7 @@ The [`Dockerfile`](Dockerfile) builds the app with `VITE_API_URL=/api` and serve
 - Caches hashed assets long-term.
 
 Through the root [`docker-compose.yml`](../docker-compose.yml), the app is served on http://localhost:8080.
+
+## Vercel
+
+[`vercel.json`](vercel.json) forwards `/api/*` to the server project and falls back to `index.html` for client-side routes. Build with `VITE_API_URL=/api`. Steps are in the [root README](../README.md#deploy-to-vercel).

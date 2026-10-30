@@ -85,10 +85,26 @@ Details are in the [server README](server/README.md#api).
 - **Validation at every boundary.** zod checks requests on the server and responses on the client.
 - **State split.** Zustand holds client state (session, messages being sent). SWR caches server data.
 
-## Deployment
+## Deploy to Vercel
 
-The simplest setup is both containers behind one domain.
+The app is deployed as two Vercel projects from this repository. The client forwards `/api/*` to the server, so the browser sees one origin and the session cookie stays first-party.
 
-If the client and API are on different sites:
-- Set `CLIENT_ORIGIN` to the client URL and `COOKIE_SAME_SITE=none`, which needs HTTPS.
-- Build the client with `VITE_API_URL` set to the API URL.
+| Project | Root directory | Config                                   |
+| ------- | -------------- | ---------------------------------------- |
+| Server  | `server`       | [`server/vercel.json`](server/vercel.json) |
+| Client  | `client`       | [`client/vercel.json`](client/vercel.json) |
+
+1. **MongoDB Atlas:** under Network Access, allow `0.0.0.0/0`. Vercel functions don't have fixed IP addresses.
+2. **Server project:**
+   - Import the repository in Vercel and set the root directory to `server`. Leave the build settings to `vercel.json`.
+   - Add these environment variables:
+     - `MONGO_URI`, `JWT_SECRET` and `OPENROUTER_API_KEY`.
+     - `OPENROUTER_MODEL`.
+     - `NODE_ENV=production` and `COOKIE_SAME_SITE=lax`.
+     - `CLIENT_ORIGIN`: use a placeholder until step 5.
+   - Deploy, then note the URL, for example `https://harbor-api.vercel.app`.
+3. **Point the client at the server:** in [`client/vercel.json`](client/vercel.json), replace `YOUR-SERVER-PROJECT.vercel.app` with the server's domain. Commit and push.
+4. **Client project:** import the same repository with root directory `client` and framework preset Vite. Add `VITE_API_URL=/api` and deploy.
+5. **Finish:** set the server's `CLIENT_ORIGIN` to the client URL and redeploy the server.
+
+Check it by opening `https://<client>.vercel.app/api/health`, which should return `{"status":"ok"}`. Then sign up in the app.

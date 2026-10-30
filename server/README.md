@@ -136,3 +136,7 @@ Messages older than the last 20 aren't sent to the model.
 ## Docker
 
 The [`Dockerfile`](Dockerfile) compiles in one stage and runs `dist/` with production dependencies only, as the non-root `node` user. The root [`docker-compose.yml`](../docker-compose.yml) runs it with `server/.env` and `NODE_ENV=production`.
+
+## Vercel
+
+[`vercel.json`](vercel.json) runs `npm run build` and sends every request to [`api/index.js`](api/index.js). That file re-exports `src/vercel.ts`, which wraps the same Express app and connects to MongoDB on the first request. Steps are in the [root README](../README.md#deploy-to-vercel).
