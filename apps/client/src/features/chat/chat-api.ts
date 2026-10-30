@@ -1,5 +1,7 @@
 import { z } from "zod"
-import { apiRequest } from "@/lib/api"
+import { apiCommand, apiRequest } from "@/lib/api"
+
+export const CONVERSATION_PAGE_SIZE = 20
 
 const messageSchema = z.object({
   id: z.string(),
@@ -16,47 +18,92 @@ const conversationSchema = z.object({
   updatedAt: z.string(),
 })
 
-const conversationsResponseSchema = z.object({
+const conversationPageSchema = z.object({
   conversations: z.array(conversationSchema),
+  nextCursor: z.string().nullable(),
 })
-const messagesResponseSchema = z.object({ messages: z.array(messageSchema) })
-const sendMessageResponseSchema = z.object({
-  conversationId: z.string(),
+
+const conversationDetailSchema = z.object({
+  conversation: conversationSchema,
   messages: z.array(messageSchema),
+})
+
+const conversationResponseSchema = z.object({
+  conversation: conversationSchema,
 })
 
 export type Message = z.infer<typeof messageSchema>
 export type MessageRole = Message["role"]
 export type Conversation = z.infer<typeof conversationSchema>
-export type SendMessageResponse = z.infer<typeof sendMessageResponseSchema>
+export type ConversationPage = z.infer<typeof conversationPageSchema>
+export type ConversationDetail = z.infer<typeof conversationDetailSchema>
 
 export interface SendMessageInput {
   message: string
   conversationId: string | undefined
 }
 
-export const fetchConversations = async (): Promise<Conversation[]> => {
-  const { conversations } = await apiRequest(
-    "/chat/history",
-    conversationsResponseSchema
-  )
-  return conversations
+export interface ConversationPageQuery {
+  search: string
+  cursor: string | null
 }
 
-export const fetchMessages = async (
-  conversationId: string
-): Promise<Message[]> => {
-  const { messages } = await apiRequest(
-    `/chat/history/${encodeURIComponent(conversationId)}`,
-    messagesResponseSchema
+const conversationPath = (conversationId: string): string =>
+  `/chat/history/${encodeURIComponent(conversationId)}`
+
+export const fetchConversationPage = ({
+  search,
+  cursor,
+}: ConversationPageQuery): Promise<ConversationPage> => {
+  const params = new URLSearchParams({ limit: String(CONVERSATION_PAGE_SIZE) })
+  if (search) params.set("q", search)
+  if (cursor) params.set("cursor", cursor)
+  return apiRequest(
+    `/chat/history?${params.toString()}`,
+    conversationPageSchema
   )
-  return messages
 }
+
+export const fetchConversation = (
+  conversationId: string
+): Promise<ConversationDetail> =>
+  apiRequest(conversationPath(conversationId), conversationDetailSchema)
 
 export const sendMessage = (
   input: SendMessageInput
-): Promise<SendMessageResponse> =>
-  apiRequest("/chat/send", sendMessageResponseSchema, {
+): Promise<ConversationDetail> =>
+  apiRequest("/chat/send", conversationDetailSchema, {
     method: "POST",
     body: input,
   })
+
+export const renameConversation = async (
+  conversationId: string,
+  title: string
+): Promise<Conversation> => {
+  const { conversation } = await apiRequest(
+    conversationPath(conversationId),
+    conversationResponseSchema,
+    {
+      method: "PATCH",
+      body: { title },
+    }
+  )
+  return conversation
+}
+
+export const deleteConversation = (conversationId: string): Promise<void> =>
+  apiCommand(conversationPath(conversationId), { method: "DELETE" })
+
+export const generateConversationTitle = async (
+  conversationId: string
+): Promise<Conversation> => {
+  const { conversation } = await apiRequest(
+    `${conversationPath(conversationId)}/title`,
+    conversationResponseSchema,
+    {
+      method: "POST",
+    }
+  )
+  return conversation
+}

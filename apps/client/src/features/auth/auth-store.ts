@@ -1,4 +1,4 @@
-import { mutate } from "swr"
+import { unload } from "swr"
 import { toast } from "sonner"
 import { create } from "zustand"
 import { getErrorMessage, isUnauthorized } from "@/lib/api"
@@ -28,7 +28,7 @@ interface AuthState {
 const GUEST_STATE = { user: null, status: "guest", error: null } as const
 
 const clearServerCache = (): void => {
-  void mutate(() => true, undefined, { revalidate: false })
+  unload({ revalidate: false })
 }
 
 export const useAuthStore = create<AuthState>()((set, get) => {

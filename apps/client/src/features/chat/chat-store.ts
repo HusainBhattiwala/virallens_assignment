@@ -1,12 +1,12 @@
-import { mutate } from "swr"
 import { create } from "zustand"
 import {
   endSessionIfUnauthorized,
   useAuthStore,
 } from "@/features/auth/auth-store"
 import { getErrorMessage } from "@/lib/api"
-import { type Message, sendMessage } from "./chat-api"
-import { CONVERSATIONS_KEY, messagesKey } from "./chat-data"
+import { sendMessage } from "./chat-api"
+import { refreshConversationList, saveConversationDetail } from "./chat-data"
+import { requestGeneratedTitle } from "./conversation-actions"
 
 export const NEW_CONVERSATION_KEY = "new"
 
@@ -50,14 +50,13 @@ export const useChatStore = create<ChatState>()((set) => {
 
       try {
         const result = await sendMessage({ message: content, conversationId })
-        await mutate<Message[]>(
-          messagesKey(result.conversationId),
-          (current = []) => [...current, ...result.messages],
-          { revalidate: false }
-        )
-        void mutate(CONVERSATIONS_KEY)
+        await saveConversationDetail(result)
+        void refreshConversationList()
 
-        if (!conversationId) onConversationCreated(result.conversationId)
+        if (!conversationId) {
+          onConversationCreated(result.conversation.id)
+          void requestGeneratedTitle(result.conversation.id)
+        }
         setPending(key, undefined)
       } catch (error) {
         if (endSessionIfUnauthorized(error)) return

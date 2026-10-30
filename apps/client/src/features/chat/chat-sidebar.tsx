@@ -1,7 +1,7 @@
 import { SquarePen } from "lucide-react"
+import { useState } from "react"
 import { Link, useParams } from "react-router"
 import { BrandLogo } from "@/components/brand-mark"
-import { Button } from "@/components/ui/button"
 import {
   Sidebar,
   SidebarContent,
@@ -13,18 +13,22 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSkeleton,
   useSidebar,
 } from "@/components/ui/sidebar"
 import { UserMenu } from "@/features/auth/user-menu"
-import { useConversations } from "./chat-data"
+import { useDebouncedValue } from "@/hooks/use-debounced-value"
+import { ConversationList } from "./conversation-list"
+import { ConversationSearch } from "./conversation-search"
 import { SidebarToggle } from "./sidebar-toggle"
 
-const SKELETON_ROWS = [0, 1, 2, 3, 4]
+const SEARCH_DEBOUNCE_MS = 300
 
 export function ChatSidebar() {
   const { conversationId } = useParams<"conversationId">()
   const { setOpenMobile } = useSidebar()
+  const [search, setSearch] = useState("")
+  const trimmedSearch = search.trim()
+  const debouncedSearch = useDebouncedValue(trimmedSearch, SEARCH_DEBOUNCE_MS)
 
   const closeOnMobile = () => {
     setOpenMobile(false)
@@ -49,12 +53,20 @@ export function ChatSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+        <ConversationSearch
+          value={search}
+          isPending={trimmedSearch !== debouncedSearch}
+          onChange={setSearch}
+        />
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Recent</SidebarGroupLabel>
+          <SidebarGroupLabel>
+            {debouncedSearch ? "Results" : "Recent"}
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <ConversationList
+              search={debouncedSearch}
               activeId={conversationId}
               onNavigate={closeOnMobile}
             />
@@ -69,66 +81,5 @@ export function ChatSidebar() {
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
-  )
-}
-
-interface ConversationListProps {
-  activeId: string | undefined
-  onNavigate: () => void
-}
-
-function ConversationList({ activeId, onNavigate }: ConversationListProps) {
-  const { data: conversations, error, isLoading, mutate } = useConversations()
-
-  if (isLoading) {
-    return (
-      <SidebarMenu>
-        {SKELETON_ROWS.map((row) => (
-          <SidebarMenuItem key={row}>
-            <SidebarMenuSkeleton />
-          </SidebarMenuItem>
-        ))}
-      </SidebarMenu>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-start gap-1 px-2 text-sm text-muted-foreground">
-        <p>Couldn't load your conversations.</p>
-        <Button
-          variant="link"
-          size="sm"
-          className="h-auto px-0"
-          onClick={() => void mutate()}
-        >
-          Try again
-        </Button>
-      </div>
-    )
-  }
-
-  if (!conversations?.length) {
-    return (
-      <p className="px-2 text-sm text-muted-foreground">
-        Your conversations will appear here.
-      </p>
-    )
-  }
-
-  return (
-    <SidebarMenu>
-      {conversations.map((conversation) => (
-        <SidebarMenuItem key={conversation.id}>
-          <SidebarMenuButton
-            render={<Link to={`/chat/${conversation.id}`} />}
-            isActive={conversation.id === activeId}
-            onClick={onNavigate}
-          >
-            <span>{conversation.title}</span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      ))}
-    </SidebarMenu>
   )
 }

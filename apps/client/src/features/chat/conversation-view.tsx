@@ -17,7 +17,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { getErrorMessage } from "@/lib/api"
-import { useConversations, useMessages } from "./chat-data"
+import { useConversation } from "./chat-data"
 import {
   NEW_CONVERSATION_KEY,
   useChatStore,
@@ -44,19 +44,17 @@ interface ConversationViewProps {
 
 function ConversationView({ conversationId }: ConversationViewProps) {
   const navigate = useNavigate()
-  const { data: conversations } = useConversations()
   const {
-    data: messages,
+    data: detail,
     error,
     isLoading,
     mutate,
-  } = useMessages(conversationId)
+  } = useConversation(conversationId)
   const pending = usePendingMessage(conversationId)
   const sendMessage = useChatStore((state) => state.sendMessage)
 
   const title = conversationId
-    ? (conversations?.find((conversation) => conversation.id === conversationId)
-        ?.title ?? "Conversation")
+    ? (detail?.conversation.title ?? "Conversation")
     : "New conversation"
 
   const send = (content: string) => {
@@ -87,7 +85,11 @@ function ConversationView({ conversationId }: ConversationViewProps) {
       )
     }
     return (
-      <MessageList messages={messages ?? []} pending={pending} onRetry={send} />
+      <MessageList
+        messages={detail?.messages ?? []}
+        pending={pending}
+        onRetry={send}
+      />
     )
   }
 
