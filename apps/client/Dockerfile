@@ -4,7 +4,8 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/client/package.json apps/client/
 COPY apps/server/package.json apps/server/
-RUN bun install --frozen-lockfile --filter @support-agent/client
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile --filter @support-agent/client
 COPY apps/client apps/client
 ARG VITE_API_URL=/api/v1
 ENV VITE_API_URL=$VITE_API_URL

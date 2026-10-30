@@ -1,4 +1,4 @@
-name: harbor-support
+name: support-agent
 
 services:
   server:

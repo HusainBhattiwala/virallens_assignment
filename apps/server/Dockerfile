@@ -6,12 +6,14 @@ COPY apps/client/package.json apps/client/
 COPY apps/server/package.json apps/server/
 
 FROM base AS build
-RUN bun install --frozen-lockfile --filter @support-agent/server
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile --filter @support-agent/server
 COPY apps/server apps/server
 RUN bun run --filter @support-agent/server build
 
 FROM base AS production-deps
-RUN bun install --frozen-lockfile --production --filter @support-agent/server
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile --production --filter @support-agent/server
 
 FROM node:22-alpine
 ENV NODE_ENV=production
