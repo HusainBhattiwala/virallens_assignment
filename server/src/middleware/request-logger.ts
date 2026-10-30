@@ -12,7 +12,12 @@ const describeRequest = (req: Request, res: Response): string =>
 const describeError = (error: Error): string =>
   error.cause instanceof Error ? `${error.message} (${error.cause.name}: ${error.cause.message})` : error.message;
 
-const toErrorDetails = (error: Error) => {
+interface ErrorDetails {
+  err?: Error;
+  upstream?: string;
+}
+
+const toErrorDetails = (error: Error): ErrorDetails => {
   if (!isHttpError(error)) return { err: error };
   return typeof error.upstream === "string" ? { upstream: error.upstream } : {};
 };

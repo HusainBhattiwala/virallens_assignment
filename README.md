@@ -2,6 +2,8 @@
 
 A full-stack support chat. Users sign up, ask an AI assistant about orders, deliveries, returns and their account, and reopen past conversations later. Conversations are stored in MongoDB per user.
 
+**Live:** app at https://virallens-assignment-8omx.vercel.app, API at https://virallens-assignment-seven.vercel.app.
+
 | Part                | Stack                                                                 | Docs                                     |
 | ------------------- | --------------------------------------------------------------------- | ---------------------------------------- |
 | [`client/`](client) | React 19, Vite, TypeScript, Tailwind CSS 4, shadcn/ui, Zustand, SWR   | [client/README.md](client/README.md)     |
@@ -31,7 +33,7 @@ In Docker, nginx serves the app and the API from one origin. In development the 
 
 ## Run with Docker
 
-Requires Docker Compose v2, a MongoDB Atlas connection string and an OpenRouter API key.
+Requires Docker Compose v2, a MongoDB Atlas connection string and an OpenRouter API key. In Atlas Network Access, allow your machine's IP address.
 
 ```bash
 cp server/.env.example server/.env
@@ -103,7 +105,7 @@ The app is deployed as two Vercel projects from this repository. The client forw
      - `NODE_ENV=production` and `COOKIE_SAME_SITE=lax`.
      - `CLIENT_ORIGIN`: use a placeholder until step 5.
    - Deploy, then note the URL, for example `https://harbor-api.vercel.app`.
-3. **Point the client at the server:** in [`client/vercel.json`](client/vercel.json), replace `YOUR-SERVER-PROJECT.vercel.app` with the server's domain. Commit and push.
+3. **Point the client at the server:** in [`client/vercel.json`](client/vercel.json), set the `/api/:path*` destination to the server's domain. It currently points to `virallens-assignment-seven.vercel.app`. Commit and push.
 4. **Client project:** import the same repository with root directory `client` and framework preset Vite. Add `VITE_API_URL=/api` and deploy.
 5. **Finish:** set the server's `CLIENT_ORIGIN` to the client URL and redeploy the server.
 

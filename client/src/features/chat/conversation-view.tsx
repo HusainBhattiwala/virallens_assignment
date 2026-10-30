@@ -1,19 +1,35 @@
 import { MessageSquareOff } from "lucide-react"
 import { Link, useNavigate, useParams } from "react-router"
 import { Button } from "@/components/ui/button"
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getErrorMessage } from "@/lib/api"
 import { useConversations, useMessages } from "./chat-data"
-import { useChatStore, usePendingMessage } from "./chat-store"
+import {
+  NEW_CONVERSATION_KEY,
+  useChatStore,
+  usePendingMessage,
+} from "./chat-store"
 import { Composer } from "./composer"
 import { EmptyConversation } from "./empty-conversation"
 import { MessageList } from "./message-list"
 
 export function ChatPage() {
   const { conversationId } = useParams<"conversationId">()
-  return <ConversationView key={conversationId ?? "new"} conversationId={conversationId} />
+  return (
+    <ConversationView
+      key={conversationId ?? NEW_CONVERSATION_KEY}
+      conversationId={conversationId}
+    />
+  )
 }
 
 interface ConversationViewProps {
@@ -23,12 +39,18 @@ interface ConversationViewProps {
 function ConversationView({ conversationId }: ConversationViewProps) {
   const navigate = useNavigate()
   const { data: conversations } = useConversations()
-  const { data: messages, error, isLoading, mutate } = useMessages(conversationId)
+  const {
+    data: messages,
+    error,
+    isLoading,
+    mutate,
+  } = useMessages(conversationId)
   const pending = usePendingMessage(conversationId)
   const sendMessage = useChatStore((state) => state.sendMessage)
 
   const title = conversationId
-    ? (conversations?.find((conversation) => conversation.id === conversationId)?.title ?? "Conversation")
+    ? (conversations?.find((conversation) => conversation.id === conversationId)
+        ?.title ?? "Conversation")
     : "New conversation"
 
   const send = (content: string) => {
@@ -43,13 +65,24 @@ function ConversationView({ conversationId }: ConversationViewProps) {
 
   const renderBody = () => {
     if (!conversationId) {
-      return pending ? <MessageList messages={[]} pending={pending} onRetry={send} /> : <EmptyConversation onPick={send} />
+      return pending ? (
+        <MessageList messages={[]} pending={pending} onRetry={send} />
+      ) : (
+        <EmptyConversation onPick={send} />
+      )
     }
     if (isLoading) return <MessagesSkeleton />
     if (error) {
-      return <ConversationUnavailable message={getErrorMessage(error)} onRetry={() => void mutate()} />
+      return (
+        <ConversationUnavailable
+          message={getErrorMessage(error)}
+          onRetry={() => void mutate()}
+        />
+      )
     }
-    return <MessageList messages={messages ?? []} pending={pending} onRetry={send} />
+    return (
+      <MessageList messages={messages ?? []} pending={pending} onRetry={send} />
+    )
   }
 
   return (
@@ -66,7 +99,10 @@ function ConversationView({ conversationId }: ConversationViewProps) {
 
 function MessagesSkeleton() {
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6" role="status">
+    <div
+      className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6"
+      role="status"
+    >
       <Skeleton className="ml-auto h-10 w-2/5 rounded-2xl" />
       <div className="flex gap-3">
         <Skeleton className="size-8 shrink-0 rounded-full" />
@@ -83,7 +119,10 @@ interface ConversationUnavailableProps {
   onRetry: () => void
 }
 
-function ConversationUnavailable({ message, onRetry }: ConversationUnavailableProps) {
+function ConversationUnavailable({
+  message,
+  onRetry,
+}: ConversationUnavailableProps) {
   return (
     <Empty className="h-full border-0">
       <EmptyHeader>

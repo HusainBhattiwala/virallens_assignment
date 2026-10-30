@@ -15,7 +15,7 @@ const cookieOptionsFor = (res: Response): CookieOptions => ({
   path: "/",
 });
 
-const unauthenticated = (): Error => createHttpError(401, "Not authenticated");
+export const unauthenticated = (): Error => createHttpError(401, "Not authenticated");
 
 const readUserId = (token: string): string | undefined => {
   try {

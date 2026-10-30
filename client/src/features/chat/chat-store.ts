@@ -1,7 +1,10 @@
 import { mutate } from "swr"
 import { create } from "zustand"
-import { getErrorMessage, isUnauthorized } from "@/lib/api"
-import { useAuthStore } from "@/features/auth/auth-store"
+import {
+  endSessionIfUnauthorized,
+  useAuthStore,
+} from "@/features/auth/auth-store"
+import { getErrorMessage } from "@/lib/api"
 import { type Message, sendMessage } from "./chat-api"
 import { CONVERSATIONS_KEY, messagesKey } from "./chat-data"
 
@@ -27,10 +30,14 @@ interface ChatState {
   discardPending: (conversationId: string | undefined) => void
 }
 
-const toPendingKey = (conversationId: string | undefined): string => conversationId ?? NEW_CONVERSATION_KEY
+const toPendingKey = (conversationId: string | undefined): string =>
+  conversationId ?? NEW_CONVERSATION_KEY
 
 export const useChatStore = create<ChatState>()((set) => {
-  const setPending = (key: string, message: PendingMessage | undefined): void => {
+  const setPending = (
+    key: string,
+    message: PendingMessage | undefined
+  ): void => {
     set((state) => ({ pending: { ...state.pending, [key]: message } }))
   }
 
@@ -53,12 +60,12 @@ export const useChatStore = create<ChatState>()((set) => {
         if (!conversationId) onConversationCreated(result.conversationId)
         setPending(key, undefined)
       } catch (error) {
-        if (isUnauthorized(error)) {
-          setPending(key, undefined)
-          useAuthStore.getState().expireSession()
-          return
-        }
-        setPending(key, { content, status: "failed", error: getErrorMessage(error) })
+        if (endSessionIfUnauthorized(error)) return
+        setPending(key, {
+          content,
+          status: "failed",
+          error: getErrorMessage(error),
+        })
       }
     },
 
@@ -72,5 +79,7 @@ useAuthStore.subscribe((state, previous) => {
   if (previous.user && !state.user) useChatStore.setState({ pending: {} })
 })
 
-export const usePendingMessage = (conversationId: string | undefined): PendingMessage | undefined =>
+export const usePendingMessage = (
+  conversationId: string | undefined
+): PendingMessage | undefined =>
   useChatStore((state) => state.pending[toPendingKey(conversationId)])

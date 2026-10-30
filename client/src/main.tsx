@@ -5,8 +5,10 @@ import { SWRConfig } from "swr"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { useAuthStore } from "@/features/auth/auth-store"
-import { isUnauthorized } from "@/lib/api"
+import {
+  endSessionIfUnauthorized,
+  useAuthStore,
+} from "@/features/auth/auth-store"
 import { App } from "./App"
 import "./index.css"
 
@@ -16,16 +18,14 @@ if (!rootElement) {
   throw new Error("Root element #root is missing from index.html")
 }
 
-const handleRequestError = (error: unknown) => {
-  if (isUnauthorized(error)) useAuthStore.getState().expireSession()
-}
-
 void useAuthStore.getState().restoreSession()
 
 createRoot(rootElement).render(
   <StrictMode>
     <ThemeProvider>
-      <SWRConfig value={{ onError: handleRequestError, revalidateOnFocus: false }}>
+      <SWRConfig
+        value={{ onError: endSessionIfUnauthorized, revalidateOnFocus: false }}
+      >
         <BrowserRouter>
           <TooltipProvider>
             <App />

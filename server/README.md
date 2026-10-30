@@ -118,6 +118,8 @@ Imports outside the current folder use `@/`.
 - Login creates a 7-day HS256 JWT in an `httpOnly` cookie named `session`.
 - The cookie is `Secure` when the request came over HTTPS, including behind a proxy.
 - `requireAuth` sets `req.userId`, and every query is filtered by it.
+- Logout clears the cookie. Tokens are stateless, so a token copied before logout stays valid until it expires.
+- Indexes, including the unique email index, are created at startup before the server accepts requests. Signup relies on that index: a duplicate email is rejected atomically by MongoDB and returned as 409.
 
 ### AI replies
 For each message, the server:

@@ -1,6 +1,6 @@
 import { SquarePen } from "lucide-react"
 import { Link, useParams } from "react-router"
-import { BrandMark } from "@/components/brand-mark"
+import { BrandLogo } from "@/components/brand-mark"
 import { Button } from "@/components/ui/button"
 import {
   Sidebar,
@@ -32,10 +32,7 @@ export function ChatSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="gap-3 pt-3">
-        <div className="flex items-center gap-2.5 px-2">
-          <BrandMark />
-          <span className="text-base font-semibold tracking-tight">Harbor</span>
-        </div>
+        <BrandLogo className="px-2" />
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -53,7 +50,10 @@ export function ChatSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>Recent</SidebarGroupLabel>
           <SidebarGroupContent>
-            <ConversationList activeId={conversationId} onNavigate={closeOnMobile} />
+            <ConversationList
+              activeId={conversationId}
+              onNavigate={closeOnMobile}
+            />
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
@@ -92,7 +92,12 @@ function ConversationList({ activeId, onNavigate }: ConversationListProps) {
     return (
       <div className="flex flex-col items-start gap-1 px-2 text-sm text-muted-foreground">
         <p>Couldn't load your conversations.</p>
-        <Button variant="link" size="sm" className="h-auto px-0" onClick={() => void mutate()}>
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto px-0"
+          onClick={() => void mutate()}
+        >
           Try again
         </Button>
       </div>
@@ -100,7 +105,11 @@ function ConversationList({ activeId, onNavigate }: ConversationListProps) {
   }
 
   if (!conversations?.length) {
-    return <p className="px-2 text-sm text-muted-foreground">Your conversations will appear here.</p>
+    return (
+      <p className="px-2 text-sm text-muted-foreground">
+        Your conversations will appear here.
+      </p>
+    )
   }
 
   return (

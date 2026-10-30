@@ -1,4 +1,4 @@
-import { model, Schema } from "mongoose";
+import { type InferSchemaType, model, Schema, type Types } from "mongoose";
 
 export const MESSAGE_ROLES = ["user", "assistant"] as const;
 
@@ -14,5 +14,7 @@ const messageSchema = new Schema(
 );
 
 messageSchema.index({ conversation: 1, _id: 1 });
+
+export type MessageRecord = InferSchemaType<typeof messageSchema> & { _id: Types.ObjectId };
 
 export const Message = model("Message", messageSchema);
