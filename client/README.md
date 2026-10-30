@@ -8,9 +8,11 @@ The [server](../server/README.md) needs to be running first.
 
 ```bash
 cp .env.example .env
-npm install
-npm run dev
+bun install
+bun run dev
 ```
+
+Run these from the `client` directory. `bun install` installs the whole workspace from the root lockfile.
 
 The app runs at http://localhost:5173.
 
@@ -18,17 +20,17 @@ The app runs at http://localhost:5173.
 
 | Variable       | Description                                                      |
 | -------------- | ---------------------------------------------------------------- |
-| `VITE_API_URL` | Base URL of the API. Use `http://localhost:4000` for local development and `/api` for Docker and Vercel |
+| `VITE_API_URL` | Base URL of the API. Use `http://localhost:4000/api/v1` for local development and `/api/v1` for Docker and Vercel |
 
 ## Scripts
 
 | Script            | Description                          |
 | ----------------- | ------------------------------------ |
-| `npm run dev`     | Start the development server         |
-| `npm run build`   | Type check and build for production  |
-| `npm run preview` | Preview the production build         |
-| `npm run check`   | Type check and lint                  |
-| `npm run format`  | Format the code with Prettier        |
+| `bun run dev`     | Start the development server         |
+| `bun run build`   | Type check and build for production  |
+| `bun run preview` | Preview the production build         |
+| `bun run check`   | Type check and lint                  |
+| `bun run format`  | Format the code with Prettier        |
 
 ## Routes
 
@@ -59,5 +61,5 @@ src/
 
 ## Deployment
 
-- **Docker:** the [Dockerfile](Dockerfile) builds the app and serves it with nginx. [nginx.conf](nginx.conf) forwards `/api` to the server container.
-- **Vercel:** [vercel.json](vercel.json) forwards `/api/*` to the deployed server and serves `index.html` for all other routes.
+- **Docker:** the [Dockerfile](Dockerfile) is built from the repository root, installs the workspace with Bun, builds the app and serves it with nginx. [nginx.conf](nginx.conf) forwards `/api` requests to the server container unchanged.
+- **Vercel:** the frontend is deployed together with the API as one project. The root [`vercel.json`](../vercel.json) serves `client/dist`, sends `/api/*` to the API function and falls back to `index.html` for other routes. See the [root README](../README.md#deployment).

@@ -6,11 +6,13 @@ Express API for the AI Customer Support Agent. It handles authentication, stores
 
 ```bash
 cp .env.example .env
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
-The API runs at http://localhost:4000. `GET /health` returns `{"status":"ok"}`.
+Run these from the `server` directory. `bun install` installs the whole workspace from the root lockfile.
+
+The API runs at http://localhost:4000. `GET /api/health` returns `{"status":"ok"}`.
 
 ## Environment variables
 
@@ -32,36 +34,36 @@ The server validates these at startup and exits with a list of problems if any a
 
 | Script                    | Description                                    |
 | ------------------------- | ---------------------------------------------- |
-| `npm run dev`             | Start in watch mode                            |
-| `npm run build`           | Compile to `dist/`                             |
-| `npm start`               | Run the compiled build                         |
-| `npm run check`           | Type check and lint                            |
-| `npm run typecheck:watch` | Type check on every file change                |
+| `bun run dev`             | Start in watch mode                            |
+| `bun run build`           | Compile to `dist/`                             |
+| `bun run start`           | Run the compiled build                         |
+| `bun run check`           | Type check and lint                            |
+| `bun run typecheck:watch` | Type check on every file change                |
 
 ## API reference
 
-All requests and responses use JSON. Protected routes need the `session` cookie, which is set on signup and login.
+All endpoints are under `/api/v1`. Requests and responses use JSON. Protected routes need the `session` cookie, which is set on signup and login.
 
 ### Auth
 
-| Method | Endpoint       | Body                  | Response                    |
-| ------ | -------------- | --------------------- | --------------------------- |
-| POST   | `/auth/signup` | `{ email, password }` | `201 { user }`              |
-| POST   | `/auth/login`  | `{ email, password }` | `200 { user }`              |
-| POST   | `/auth/logout` |                       | `204`                       |
-| GET    | `/auth/me`     |                       | `200 { user }` (protected)  |
+| Method | Endpoint              | Body                  | Response                    |
+| ------ | --------------------- | --------------------- | --------------------------- |
+| POST   | `/api/v1/auth/signup` | `{ email, password }` | `201 { user }`              |
+| POST   | `/api/v1/auth/login`  | `{ email, password }` | `200 { user }`              |
+| POST   | `/api/v1/auth/logout` |                       | `204`                       |
+| GET    | `/api/v1/auth/me`     |                       | `200 { user }` (protected)  |
 
 ### Chat
 
 All chat routes are protected.
 
-| Method | Endpoint                        | Body                           | Response                            |
-| ------ | ------------------------------- | ------------------------------ | ----------------------------------- |
-| POST   | `/chat/send`                    | `{ message, conversationId? }` | `201 { conversationId, messages }`  |
-| GET    | `/chat/history`                 |                                | `200 { conversations }`             |
-| GET    | `/chat/history/:conversationId` |                                | `200 { messages }`                  |
+| Method | Endpoint                               | Body                           | Response                            |
+| ------ | -------------------------------------- | ------------------------------ | ----------------------------------- |
+| POST   | `/api/v1/chat/send`                    | `{ message, conversationId? }` | `201 { conversationId, messages }`  |
+| GET    | `/api/v1/chat/history`                 |                                | `200 { conversations }`             |
+| GET    | `/api/v1/chat/history/:conversationId` |                                | `200 { messages }`                  |
 
-Leave out `conversationId` to start a new conversation. `/chat/send` returns the saved user message and the assistant's reply.
+Leave out `conversationId` to start a new conversation. `/api/v1/chat/send` returns the saved user message and the assistant's reply.
 
 ### Data shapes
 
@@ -114,5 +116,5 @@ src/
 
 ## Deployment
 
-- **Docker:** the [Dockerfile](Dockerfile) builds a production image that runs `dist/server.js`. See [docker-compose.yml](../docker-compose.yml) at the repository root.
-- **Vercel:** [vercel.json](vercel.json) builds the project and routes every request to [api/index.js](api/index.js), which loads the compiled app.
+- **Docker:** the [Dockerfile](Dockerfile) is built from the repository root so it can use the workspace lockfile. Bun installs the dependencies and Node runs `dist/server.js`. See [docker-compose.yml](../docker-compose.yml).
+- **Vercel:** the API is deployed together with the frontend as one project. The root [`api/index.js`](../api/index.js) loads `dist/vercel.js`, which connects to MongoDB and passes each `/api` request to the Express app. See the [root README](../README.md#deployment).

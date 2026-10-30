@@ -2,9 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { Request, Response } from "express";
 import { isHttpError } from "http-errors";
 import { pinoHttp } from "pino-http";
+import { HEALTH_CHECK_PATH } from "@/config/api-paths.js";
 import { logger } from "@/config/logger.js";
-
-const HEALTH_CHECK_PATH = "/health";
 
 const describeRequest = (req: Request, res: Response): string =>
   `${req.method} ${req.originalUrl} ${String(res.statusCode)}`;

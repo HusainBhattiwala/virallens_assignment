@@ -2,7 +2,9 @@ name: harbor-support
 
 services:
   server:
-    build: ./server
+    build:
+      context: .
+      dockerfile: server/Dockerfile
     env_file:
       - path: ./server/.env
         required: true
@@ -13,7 +15,7 @@ services:
     ports:
       - "4000:4000"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/api/health"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -22,9 +24,10 @@ services:
 
   client:
     build:
-      context: ./client
+      context: .
+      dockerfile: client/Dockerfile
       args:
-        VITE_API_URL: /api
+        VITE_API_URL: /api/v1
     ports:
       - "8080:80"
     depends_on:

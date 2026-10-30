@@ -4,6 +4,7 @@ import express, { type Express } from "express";
 import helmet from "helmet";
 import { authRouter } from "@/auth/auth.routes.js";
 import { chatRouter } from "@/chat/chat.routes.js";
+import { API_V1_PREFIX, HEALTH_CHECK_PATH } from "@/config/api-paths.js";
 import { env } from "@/config/env.js";
 import { errorHandler, notFound } from "@/middleware/error-handler.js";
 import { apiRateLimiter } from "@/middleware/rate-limit.js";
@@ -22,11 +23,11 @@ export const createApp = (): Express => {
   app.use(cookieParser());
   app.use(apiRateLimiter);
 
-  app.get("/health", (_req, res) => {
+  app.get(HEALTH_CHECK_PATH, (_req, res) => {
     res.json({ status: "ok" });
   });
-  app.use("/auth", authRouter);
-  app.use("/chat", chatRouter);
+  app.use(`${API_V1_PREFIX}/auth`, authRouter);
+  app.use(`${API_V1_PREFIX}/chat`, chatRouter);
 
   app.use(notFound);
   app.use(errorHandler);

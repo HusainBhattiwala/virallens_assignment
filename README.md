@@ -30,6 +30,7 @@ A full-stack chat application where users talk to an AI customer support assista
 ### Prerequisites
 
 - Node.js 22 or newer
+- Bun 1.3 or newer, used as the package manager
 - A MongoDB Atlas cluster (the free tier is enough)
 - An OpenRouter API key
 
@@ -52,35 +53,38 @@ The app runs at http://localhost:8080 and the API at http://localhost:4000. Mong
 
 ### Run locally
 
-Start the API:
+The repository is a Bun workspace. Install everything from the root, then start both apps:
 
 ```bash
-cd server
-npm install
-npm run dev
-```
-
-In a second terminal, start the frontend:
-
-```bash
-cd client
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
 The app runs at http://localhost:5173 and the API at http://localhost:4000.
 
+To work on one app, filter by package name, for example `bun run --filter @support-agent/server dev`.
+
+### Scripts
+
+| Script          | Description                                  |
+| --------------- | -------------------------------------------- |
+| `bun run dev`   | Start the client and server in watch mode    |
+| `bun run build` | Build both apps for production               |
+| `bun run check` | Type check and lint both apps                |
+
 ## API
 
-| Method | Endpoint                        | Auth | Description                                   |
-| ------ | ------------------------------- | ---- | --------------------------------------------- |
-| POST   | `/auth/signup`                  | No   | Create an account                             |
-| POST   | `/auth/login`                   | No   | Log in                                        |
-| POST   | `/auth/logout`                  | No   | Log out                                       |
-| GET    | `/auth/me`                      | Yes  | Get the current user                          |
-| POST   | `/chat/send`                    | Yes  | Send a message and get the AI reply           |
-| GET    | `/chat/history`                 | Yes  | List the user's conversations                 |
-| GET    | `/chat/history/:conversationId` | Yes  | Get the messages of a conversation            |
+The API is versioned. All endpoints live under `/api/v1`, and the health check is at `/api/health`.
+
+| Method | Endpoint                               | Auth | Description                          |
+| ------ | -------------------------------------- | ---- | ------------------------------------ |
+| POST   | `/api/v1/auth/signup`                  | No   | Create an account                    |
+| POST   | `/api/v1/auth/login`                   | No   | Log in                               |
+| POST   | `/api/v1/auth/logout`                  | No   | Log out                              |
+| GET    | `/api/v1/auth/me`                      | Yes  | Get the current user                 |
+| POST   | `/api/v1/chat/send`                    | Yes  | Send a message and get the AI reply  |
+| GET    | `/api/v1/chat/history`                 | Yes  | List the user's conversations        |
+| GET    | `/api/v1/chat/history/:conversationId` | Yes  | Get the messages of a conversation   |
 
 Request and response formats are documented in the [server README](server/README.md#api-reference). A [Postman collection](server/postman/support-agent.postman_collection.json) is included for testing.
 
@@ -88,17 +92,32 @@ Request and response formats are documented in the [server README](server/README
 
 ```
 .
-  client/               React frontend
-  server/               Express API
+  client/               React frontend (@support-agent/client)
+  server/               Express API (@support-agent/server)
+  package.json          Workspace definition and shared dependency versions
+  bun.lock              Lockfile for the whole workspace
   docker-compose.yml    Runs the client and server together
+  vercel.json           Vercel build and routing
+  api/index.js          Vercel function that serves the API
 ```
+
+Dependencies shared by both apps, such as TypeScript, ESLint and Zod, are versioned once in the `catalog` of the root `package.json`.
 
 ## Deployment
 
-The live demo runs on Vercel as two projects from this repository: one with the root directory set to `server`, and one set to `client`. The client forwards `/api/*` requests to the server, which keeps the app and the API on a single domain so the session cookie works without cross-site settings.
+The live demo runs on Vercel as a single project. [`vercel.json`](vercel.json) builds both apps, serves the frontend from `client/dist` and sends every `/api/*` request to the Express app through [`api/index.js`](api/index.js). The frontend and the API share one domain, so the session cookie works without cross-site settings.
 
 1. In MongoDB Atlas, allow access from `0.0.0.0/0` under Network Access, since Vercel doesn't use fixed IP addresses.
-2. Deploy the `server` directory. Add the variables from `server/.env.example`, with `NODE_ENV=production`.
-3. Set the server URL as the `/api/:path*` destination in [`client/vercel.json`](client/vercel.json).
-4. Deploy the `client` directory with the Vite preset and `VITE_API_URL=/api`.
-5. Set `CLIENT_ORIGIN` on the server to the client URL and redeploy the server.
+2. Import the repository in Vercel and keep the root directory as the repository root. The build settings come from `vercel.json`.
+3. Add the environment variables below, then deploy.
+
+| Variable             | Value                                           |
+| -------------------- | ----------------------------------------------- |
+| `MONGO_URI`          | Atlas connection string                         |
+| `JWT_SECRET`         | Output of `openssl rand -hex 32`                |
+| `OPENROUTER_API_KEY` | OpenRouter API key                              |
+| `OPENROUTER_MODEL`   | Optional, defaults to `google/gemma-4-26b-a4b-it:free` |
+| `NODE_ENV`           | `production`                                    |
+| `COOKIE_SAME_SITE`   | `lax`                                           |
+| `CLIENT_ORIGIN`      | The deployment URL, for example `https://your-app.vercel.app` |
+| `VITE_API_URL`       | `/api/v1`                                       |

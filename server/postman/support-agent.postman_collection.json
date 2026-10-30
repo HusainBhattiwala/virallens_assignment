@@ -2,7 +2,7 @@
   "info": {
     "name": "AI Customer Support Agent API",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "REST API for the AI customer support chat app: JWT auth plus AI chat with history stored in MongoDB.\n\n## Getting started\n1. Start the server: `cd server && npm run dev` (requires a filled-in `.env`).\n2. Check `baseUrl` in the collection variables (default `http://localhost:4000`).\n3. Run **Auth → Sign up** (or **Log in**). Postman stores the session cookie automatically, so every request after that is authenticated.\n4. Run **Chat → Send message (new conversation)**. Its test script saves `conversationId` for the follow-up requests.\n\n## Resources\n| Method | Path | Purpose |\n|---|---|---|\n| POST | `/auth/signup` | Create an account and start a session |\n| POST | `/auth/login` | Start a session |\n| POST | `/auth/logout` | End the session |\n| GET | `/auth/me` | Current user |\n| POST | `/chat/send` | Send a message (optionally to an existing conversation) and get the AI reply |\n| GET | `/chat/history` | List conversations |\n| GET | `/chat/history/:conversationId` | List messages in a conversation |\n\nRun the whole collection top to bottom with the Collection Runner for a full end-to-end check.\n\n## Authentication\nLogin and signup set an `httpOnly` cookie named `session` containing a JWT valid for 7 days. Routes under `/auth/me` and `/chat` require it.\nBrowser clients must send requests with `credentials: \"include\"` (fetch) or `withCredentials: true` (axios).\n\n## Error format\nEvery error response has the same shape:\n```json\n{ \"error\": \"Human readable message\" }\n```\nValidation failures (400) also include `details` with `formErrors` and per-field `fieldErrors`.\n\n| Status | Meaning |\n|---|---|\n| 400 | Request body or URL parameter failed validation, or malformed JSON |\n| 401 | Missing, invalid or expired session, or wrong credentials |\n| 404 | Route or conversation not found (other users' conversations also return 404) |\n| 409 | Email already registered |\n| 429 | Rate limit exceeded |\n| 502 | The AI provider failed or returned an empty reply |\n| 503 | The AI provider is rate limiting (common on free models) |\n\n## Rate limits\n- All routes: 100 requests per 15 minutes per IP.\n- `POST /auth/signup` and `POST /auth/login`: 20 requests per 15 minutes per IP (shared).\n\nResponses include `RateLimit` and `RateLimit-Policy` headers, and every response carries an `X-Request-Id` header that matches the server log line for that request."
+    "description": "REST API for the AI customer support chat app: JWT auth plus AI chat with history stored in MongoDB.\n\n## Getting started\n1. Start the server: `cd server && npm run dev` (requires a filled-in `.env`).\n2. Check `baseUrl` in the collection variables (default `http://localhost:4000`).\n3. Run **Auth → Sign up** (or **Log in**). Postman stores the session cookie automatically, so every request after that is authenticated.\n4. Run **Chat → Send message (new conversation)**. Its test script saves `conversationId` for the follow-up requests.\n\n## Resources\n| Method | Path | Purpose |\n|---|---|---|\n| POST | `/api/v1/auth/signup` | Create an account and start a session |\n| POST | `/api/v1/auth/login` | Start a session |\n| POST | `/api/v1/auth/logout` | End the session |\n| GET | `/api/v1/auth/me` | Current user |\n| POST | `/api/v1/chat/send` | Send a message (optionally to an existing conversation) and get the AI reply |\n| GET | `/api/v1/chat/history` | List conversations |\n| GET | `/api/v1/chat/history/:conversationId` | List messages in a conversation |\n\nRun the whole collection top to bottom with the Collection Runner for a full end-to-end check.\n\n## Authentication\nLogin and signup set an `httpOnly` cookie named `session` containing a JWT valid for 7 days. Routes under `/api/v1/auth/me` and `/api/v1/chat` require it.\nBrowser clients must send requests with `credentials: \"include\"` (fetch) or `withCredentials: true` (axios).\n\n## Error format\nEvery error response has the same shape:\n```json\n{ \"error\": \"Human readable message\" }\n```\nValidation failures (400) also include `details` with `formErrors` and per-field `fieldErrors`.\n\n| Status | Meaning |\n|---|---|\n| 400 | Request body or URL parameter failed validation, or malformed JSON |\n| 401 | Missing, invalid or expired session, or wrong credentials |\n| 404 | Route or conversation not found (other users' conversations also return 404) |\n| 409 | Email already registered |\n| 429 | Rate limit exceeded |\n| 502 | The AI provider failed or returned an empty reply |\n| 503 | The AI provider is rate limiting (common on free models) |\n\n## Rate limits\n- All routes: 100 requests per 15 minutes per IP.\n- `POST /auth/signup` and `POST /auth/login`: 20 requests per 15 minutes per IP (shared).\n\nResponses include `RateLimit` and `RateLimit-Policy` headers, and every response carries an `X-Request-Id` header that matches the server log line for that request."
   },
   "variable": [
     {
@@ -40,11 +40,12 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{baseUrl}}/health",
+          "raw": "{{baseUrl}}/api/health",
           "host": [
             "{{baseUrl}}"
           ],
           "path": [
+            "api",
             "health"
           ]
         },
@@ -57,11 +58,12 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/health",
+              "raw": "{{baseUrl}}/api/health",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
+                "api",
                 "health"
               ]
             },
@@ -116,11 +118,13 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/auth/signup",
+              "raw": "{{baseUrl}}/api/v1/auth/signup",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "auth",
                 "signup"
               ]
@@ -148,11 +152,13 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/auth/signup",
+                  "raw": "{{baseUrl}}/api/v1/auth/signup",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "auth",
                     "signup"
                   ]
@@ -190,11 +196,13 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/auth/signup",
+                  "raw": "{{baseUrl}}/api/v1/auth/signup",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "auth",
                     "signup"
                   ]
@@ -232,11 +240,13 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/auth/signup",
+                  "raw": "{{baseUrl}}/api/v1/auth/signup",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "auth",
                     "signup"
                   ]
@@ -274,11 +284,13 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/auth/signup",
+                  "raw": "{{baseUrl}}/api/v1/auth/signup",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "auth",
                     "signup"
                   ]
@@ -329,11 +341,13 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/auth/login",
+              "raw": "{{baseUrl}}/api/v1/auth/login",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "auth",
                 "login"
               ]
@@ -361,11 +375,13 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/auth/login",
+                  "raw": "{{baseUrl}}/api/v1/auth/login",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "auth",
                     "login"
                   ]
@@ -403,11 +419,13 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/auth/login",
+                  "raw": "{{baseUrl}}/api/v1/auth/login",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "auth",
                     "login"
                   ]
@@ -454,11 +472,13 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/auth/me",
+              "raw": "{{baseUrl}}/api/v1/auth/me",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "auth",
                 "me"
               ]
@@ -472,11 +492,13 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/auth/me",
+                  "raw": "{{baseUrl}}/api/v1/auth/me",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "auth",
                     "me"
                   ]
@@ -500,11 +522,13 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/auth/me",
+                  "raw": "{{baseUrl}}/api/v1/auth/me",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "auth",
                     "me"
                   ]
@@ -555,11 +579,13 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/chat/send",
+              "raw": "{{baseUrl}}/api/v1/chat/send",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "chat",
                 "send"
               ]
@@ -587,11 +613,13 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/chat/send",
+                  "raw": "{{baseUrl}}/api/v1/chat/send",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "chat",
                     "send"
                   ]
@@ -629,11 +657,13 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/chat/send",
+                  "raw": "{{baseUrl}}/api/v1/chat/send",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "chat",
                     "send"
                   ]
@@ -671,11 +701,13 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/chat/send",
+                  "raw": "{{baseUrl}}/api/v1/chat/send",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "chat",
                     "send"
                   ]
@@ -713,11 +745,13 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/chat/send",
+                  "raw": "{{baseUrl}}/api/v1/chat/send",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "chat",
                     "send"
                   ]
@@ -755,11 +789,13 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/chat/send",
+                  "raw": "{{baseUrl}}/api/v1/chat/send",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "chat",
                     "send"
                   ]
@@ -797,11 +833,13 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/chat/send",
+                  "raw": "{{baseUrl}}/api/v1/chat/send",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "chat",
                     "send"
                   ]
@@ -853,11 +891,13 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/chat/send",
+              "raw": "{{baseUrl}}/api/v1/chat/send",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "chat",
                 "send"
               ]
@@ -885,11 +925,13 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/chat/send",
+                  "raw": "{{baseUrl}}/api/v1/chat/send",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "chat",
                     "send"
                   ]
@@ -936,11 +978,13 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/chat/history",
+              "raw": "{{baseUrl}}/api/v1/chat/history",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "chat",
                 "history"
               ]
@@ -954,11 +998,13 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/chat/history",
+                  "raw": "{{baseUrl}}/api/v1/chat/history",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "chat",
                     "history"
                   ]
@@ -982,11 +1028,13 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/chat/history",
+                  "raw": "{{baseUrl}}/api/v1/chat/history",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "chat",
                     "history"
                   ]
@@ -1024,11 +1072,13 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/chat/history/{{conversationId}}",
+              "raw": "{{baseUrl}}/api/v1/chat/history/{{conversationId}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "chat",
                 "history",
                 "{{conversationId}}"
@@ -1043,11 +1093,13 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/chat/history/{{conversationId}}",
+                  "raw": "{{baseUrl}}/api/v1/chat/history/{{conversationId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "chat",
                     "history",
                     "{{conversationId}}"
@@ -1072,11 +1124,13 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/chat/history/{{conversationId}}",
+                  "raw": "{{baseUrl}}/api/v1/chat/history/{{conversationId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "chat",
                     "history",
                     "{{conversationId}}"
@@ -1101,11 +1155,13 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/chat/history/{{conversationId}}",
+                  "raw": "{{baseUrl}}/api/v1/chat/history/{{conversationId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "chat",
                     "history",
                     "{{conversationId}}"
@@ -1130,11 +1186,13 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/chat/history/{{conversationId}}",
+                  "raw": "{{baseUrl}}/api/v1/chat/history/{{conversationId}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "chat",
                     "history",
                     "{{conversationId}}"
@@ -1178,11 +1236,13 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/auth/logout",
+              "raw": "{{baseUrl}}/api/v1/auth/logout",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "auth",
                 "logout"
               ]
@@ -1196,11 +1256,13 @@
                 "method": "POST",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/auth/logout",
+                  "raw": "{{baseUrl}}/api/v1/auth/logout",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "auth",
                     "logout"
                   ]
@@ -1237,11 +1299,13 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/auth/me",
+              "raw": "{{baseUrl}}/api/v1/auth/me",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "auth",
                 "me"
               ]
@@ -1255,11 +1319,13 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/auth/me",
+                  "raw": "{{baseUrl}}/api/v1/auth/me",
                   "host": [
                     "{{baseUrl}}"
                   ],
                   "path": [
+                    "api",
+                    "v1",
                     "auth",
                     "me"
                   ]
