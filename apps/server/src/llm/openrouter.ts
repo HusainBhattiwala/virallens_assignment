@@ -5,6 +5,7 @@ import createHttpError from "http-errors";
 import { env } from "@/config/env.js";
 import { toError } from "@/lib/errors.js";
 import type { MessageRole } from "@/models/message.model.js";
+import { buildSupportPrompt } from "./support-prompt.js";
 
 export interface ChatMessage {
   role: MessageRole;
@@ -17,14 +18,6 @@ const APP_TITLE = "AI Customer Support Agent";
 const REQUEST_TIMEOUT_MS = 60_000;
 const FREE_MODELS_ROUTER = "openrouter/free";
 const MODELS = [...new Set([OPENROUTER_MODEL, FREE_MODELS_ROUTER])];
-
-const SYSTEM_PROMPT = [
-  "You are a friendly and professional customer support assistant.",
-  "Answer clearly and concisely, ask a clarifying question when the request is ambiguous,",
-  "and never invent order details, policies, or account information you were not given.",
-  "If you cannot resolve an issue, explain the next step the customer should take.",
-  "Reply in plain text without Markdown formatting, using short paragraphs.",
-].join(" ");
 
 const TITLE_PROMPT = [
   "Write a short title of at most six words that describes this customer support conversation.",
@@ -72,6 +65,7 @@ const complete = async (systemPrompt: string, messages: ChatMessage[]): Promise<
   return text;
 };
 
-export const generateReply = (messages: ChatMessage[]): Promise<string> => complete(SYSTEM_PROMPT, messages);
+export const generateReply = (customerEmail: string, messages: ChatMessage[]): Promise<string> =>
+  complete(buildSupportPrompt({ customerEmail, today: new Date() }), messages);
 
 export const generateTitle = (messages: ChatMessage[]): Promise<string> => complete(TITLE_PROMPT, messages);
