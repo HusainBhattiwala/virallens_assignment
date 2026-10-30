@@ -10,10 +10,10 @@ import {
 } from "@/components/ui/empty"
 
 const SUGGESTIONS = [
-  "Where is my order?",
-  "I want to return an item",
-  "How do I change my delivery address?",
-  "My payment failed but I was charged",
+  "Where is my order HB-1043?",
+  "My blender from order HB-1044 arrived damaged",
+  "Can I change the address for order HB-1042?",
+  "I was charged twice for order HB-1046",
 ]
 
 interface EmptyConversationProps {
