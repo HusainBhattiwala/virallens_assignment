@@ -9,7 +9,10 @@ const email = z
 
 export const signupSchema = z.object({
   email,
-  password: z.string().min(8, "Use at least 8 characters").max(72, "Use 72 characters or fewer"),
+  password: z
+    .string()
+    .min(8, "Use at least 8 characters")
+    .max(72, "Use 72 characters or fewer"),
 })
 
 export const loginSchema = z.object({

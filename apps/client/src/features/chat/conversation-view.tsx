@@ -87,7 +87,7 @@ function ConversationView({ conversationId }: ConversationViewProps) {
 
   return (
     <div className="flex h-svh flex-col">
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+      <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4 sm:px-5">
         <SidebarTrigger className="-ml-1" />
         <h1 className="truncate text-sm font-medium">{title}</h1>
       </header>
@@ -100,7 +100,7 @@ function ConversationView({ conversationId }: ConversationViewProps) {
 function MessagesSkeleton() {
   return (
     <div
-      className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6"
+      className="mx-auto flex w-full max-w-3xl flex-col gap-7 px-4 py-8 sm:px-6"
       role="status"
     >
       <Skeleton className="ml-auto h-10 w-2/5 rounded-2xl" />

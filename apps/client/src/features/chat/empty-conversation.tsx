@@ -1,6 +1,13 @@
 import { LifeBuoy } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
 
 const SUGGESTIONS = [
   "Where is my order?",
@@ -17,12 +24,18 @@ export function EmptyConversation({ onPick }: EmptyConversationProps) {
   return (
     <Empty className="h-full border-0">
       <EmptyHeader>
-        <EmptyMedia variant="icon" className="size-12 rounded-xl bg-primary text-signal">
+        <EmptyMedia
+          variant="icon"
+          className="size-12 rounded-xl bg-primary text-primary-foreground"
+        >
           <LifeBuoy className="size-6" strokeWidth={2.25} />
         </EmptyMedia>
-        <EmptyTitle className="text-2xl font-semibold tracking-tight">How can we help today?</EmptyTitle>
+        <EmptyTitle className="text-2xl font-semibold tracking-tight">
+          How can we help today?
+        </EmptyTitle>
         <EmptyDescription>
-          Ask about orders, deliveries, returns or your account. Replies usually arrive within a few seconds.
+          Ask about orders, deliveries, returns or your account. Replies usually
+          arrive within a few seconds.
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent className="max-w-lg">

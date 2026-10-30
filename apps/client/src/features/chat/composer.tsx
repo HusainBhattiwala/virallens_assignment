@@ -34,14 +34,22 @@ export function Composer({ isSending, onSend }: ComposerProps) {
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return
+    if (
+      event.key !== "Enter" ||
+      event.shiftKey ||
+      event.nativeEvent.isComposing
+    )
+      return
     event.preventDefault()
     submit()
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto w-full max-w-3xl px-4 pb-4">
-      <InputGroup className="rounded-2xl bg-card shadow-sm">
+    <form
+      onSubmit={handleSubmit}
+      className="mx-auto w-full max-w-3xl px-4 pt-2 pb-5 sm:px-6"
+    >
+      <InputGroup className="rounded-2xl bg-card shadow-sm dark:bg-card">
         <InputGroupTextarea
           value={draft}
           onChange={(event) => {

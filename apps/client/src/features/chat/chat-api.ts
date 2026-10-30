@@ -16,7 +16,9 @@ const conversationSchema = z.object({
   updatedAt: z.string(),
 })
 
-const conversationsResponseSchema = z.object({ conversations: z.array(conversationSchema) })
+const conversationsResponseSchema = z.object({
+  conversations: z.array(conversationSchema),
+})
 const messagesResponseSchema = z.object({ messages: z.array(messageSchema) })
 const sendMessageResponseSchema = z.object({
   conversationId: z.string(),
@@ -34,11 +36,16 @@ export interface SendMessageInput {
 }
 
 export const fetchConversations = async (): Promise<Conversation[]> => {
-  const { conversations } = await apiRequest("/chat/history", conversationsResponseSchema)
+  const { conversations } = await apiRequest(
+    "/chat/history",
+    conversationsResponseSchema
+  )
   return conversations
 }
 
-export const fetchMessages = async (conversationId: string): Promise<Message[]> => {
+export const fetchMessages = async (
+  conversationId: string
+): Promise<Message[]> => {
   const { messages } = await apiRequest(
     `/chat/history/${encodeURIComponent(conversationId)}`,
     messagesResponseSchema
@@ -46,5 +53,10 @@ export const fetchMessages = async (conversationId: string): Promise<Message[]> 
   return messages
 }
 
-export const sendMessage = (input: SendMessageInput): Promise<SendMessageResponse> =>
-  apiRequest("/chat/send", sendMessageResponseSchema, { method: "POST", body: input })
+export const sendMessage = (
+  input: SendMessageInput
+): Promise<SendMessageResponse> =>
+  apiRequest("/chat/send", sendMessageResponseSchema, {
+    method: "POST",
+    body: input,
+  })

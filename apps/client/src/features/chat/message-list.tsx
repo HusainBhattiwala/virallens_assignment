@@ -22,15 +22,18 @@ export function MessageList({ messages, pending, onRetry }: MessageListProps) {
   }, [messages.length, pendingStatus])
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-6">
-      <ol className="flex flex-col gap-5" aria-label="Conversation">
+    <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
+      <ol className="flex flex-col gap-7" aria-label="Conversation">
         {messages.map((message) => (
           <li key={message.id}>
             <MessageBubble
               role={message.role}
               content={message.content}
               meta={
-                <time dateTime={message.createdAt} className="px-1 text-xs text-muted-foreground">
+                <time
+                  dateTime={message.createdAt}
+                  className="px-1 text-xs text-muted-foreground"
+                >
                   {formatTime(message.createdAt)}
                 </time>
               }
@@ -45,7 +48,10 @@ export function MessageList({ messages, pending, onRetry }: MessageListProps) {
               isFailed={pending.status === "failed"}
               meta={
                 pending.status === "failed" ? (
-                  <div className="flex items-center gap-2 px-1 text-xs text-destructive" role="alert">
+                  <div
+                    className="flex items-center gap-2 px-1 text-xs text-destructive"
+                    role="alert"
+                  >
                     <span>Not sent. {pending.error}</span>
                     <Button
                       variant="ghost"
@@ -59,7 +65,9 @@ export function MessageList({ messages, pending, onRetry }: MessageListProps) {
                     </Button>
                   </div>
                 ) : (
-                  <span className="px-1 text-xs text-muted-foreground">Sending</span>
+                  <span className="px-1 text-xs text-muted-foreground">
+                    Sending
+                  </span>
                 )
               }
             />

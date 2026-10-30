@@ -26,13 +26,20 @@ export const fetchSession = async (): Promise<User | null> => {
 }
 
 export const login = async (credentials: Credentials): Promise<User> => {
-  const { user } = await apiRequest("/auth/login", userResponseSchema, { method: "POST", body: credentials })
+  const { user } = await apiRequest("/auth/login", userResponseSchema, {
+    method: "POST",
+    body: credentials,
+  })
   return user
 }
 
 export const signup = async (credentials: Credentials): Promise<User> => {
-  const { user } = await apiRequest("/auth/signup", userResponseSchema, { method: "POST", body: credentials })
+  const { user } = await apiRequest("/auth/signup", userResponseSchema, {
+    method: "POST",
+    body: credentials,
+  })
   return user
 }
 
-export const logout = (): Promise<void> => apiCommand("/auth/logout", { method: "POST" })
+export const logout = (): Promise<void> =>
+  apiCommand("/auth/logout", { method: "POST" })

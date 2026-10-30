@@ -15,23 +15,35 @@ const SPEAKER_LABEL: Record<MessageRole, string> = {
   assistant: "Harbor said",
 }
 
-export function MessageBubble({ role, content, meta, isFailed = false }: MessageBubbleProps) {
-  const isUser = role === "user"
-
-  return (
-    <div className={cn("flex gap-3", isUser ? "justify-end" : "justify-start")}>
-      {isUser ? null : <AssistantAvatar />}
-      <div className={cn("flex max-w-[85%] min-w-0 flex-col gap-1.5", isUser ? "items-end" : "items-start")}>
+export function MessageBubble({
+  role,
+  content,
+  meta,
+  isFailed = false,
+}: MessageBubbleProps) {
+  if (role === "user") {
+    return (
+      <div className="flex flex-col items-end gap-1.5">
         <p
           className={cn(
-            "rounded-2xl px-4 py-2.5 text-[0.9375rem] leading-relaxed break-words whitespace-pre-wrap",
-            isUser
-              ? "rounded-br-md bg-primary text-primary-foreground"
-              : "rounded-tl-md bg-card text-card-foreground ring-1 ring-border",
-            isFailed && "bg-primary/60"
+            "max-w-[80%] rounded-2xl bg-secondary px-4 py-2.5 text-[0.9375rem] leading-7 break-words whitespace-pre-wrap text-secondary-foreground",
+            isFailed && "opacity-70 ring-1 ring-destructive/50"
           )}
         >
-          <span className="sr-only">{SPEAKER_LABEL[role]}: </span>
+          <span className="sr-only">{SPEAKER_LABEL.user}: </span>
+          {content}
+        </p>
+        {meta}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex gap-3.5">
+      <AssistantAvatar />
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 pt-1">
+        <p className="text-[0.9375rem] leading-7 break-words whitespace-pre-wrap">
+          <span className="sr-only">{SPEAKER_LABEL.assistant}: </span>
           {content}
         </p>
         {meta}
