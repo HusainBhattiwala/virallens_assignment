@@ -1,12 +1,8 @@
-# Harbor server
+# Server
 
-REST API for the Harbor support chat: accounts and sessions, conversation storage in MongoDB, and AI replies through OpenRouter.
-
-**Stack:** Node.js 22, Express 5, TypeScript, Mongoose 9, zod 4, JWT, bcrypt, pino, `@openrouter/sdk`.
+Express API for the AI Customer Support Agent. It handles authentication, stores conversations in MongoDB and generates replies with OpenRouter.
 
 ## Setup
-
-Requires Node.js 22 or newer, a MongoDB connection string (Atlas) and an OpenRouter API key.
 
 ```bash
 cp .env.example .env
@@ -14,131 +10,109 @@ npm install
 npm run dev
 ```
 
-The API runs on http://localhost:4000. `GET /health` returns `{"status":"ok"}`.
+The API runs at http://localhost:4000. `GET /health` returns `{"status":"ok"}`.
 
 ## Environment variables
-
-They're validated at startup, and the server refuses to start if any are invalid.
 
 | Variable             | Required | Default                          | Description                                                   |
 | -------------------- | -------- | -------------------------------- | ------------------------------------------------------------- |
 | `MONGO_URI`          | Yes      |                                  | MongoDB connection string                                     |
-| `JWT_SECRET`         | Yes      |                                  | At least 32 characters (`openssl rand -hex 32`)               |
+| `JWT_SECRET`         | Yes      |                                  | Secret for signing session tokens, at least 32 characters     |
 | `OPENROUTER_API_KEY` | Yes      |                                  | OpenRouter API key                                            |
-| `CLIENT_ORIGIN`      | Yes      |                                  | Client URL allowed by CORS                                    |
-| `OPENROUTER_MODEL`   | No       | `google/gemma-4-26b-a4b-it:free` | Model to try first                                            |
-| `NODE_ENV`           | No       | `development`                    | `production` switches to JSON logs and hides error details    |
-| `PORT`               | No       | `4000`                           | HTTP port                                                     |
+| `CLIENT_ORIGIN`      | Yes      |                                  | URL of the frontend, allowed by CORS                          |
+| `OPENROUTER_MODEL`   | No       | `google/gemma-4-26b-a4b-it:free` | Model used for replies                                        |
+| `NODE_ENV`           | No       | `development`                    | Set to `production` for JSON logs and generic error messages  |
+| `PORT`               | No       | `4000`                           | Port the server listens on                                    |
 | `LOG_LEVEL`          | No       | `info`                           | Pino log level                                                |
-| `COOKIE_SAME_SITE`   | No       | `lax`                            | Use `none` only for a client on another site (needs HTTPS)    |
+| `COOKIE_SAME_SITE`   | No       | `lax`                            | Set to `none` only if the frontend is on a different site     |
+
+The server validates these at startup and exits with a list of problems if any are missing or invalid.
 
 ## Scripts
 
-| Script                    | Purpose                                                              |
-| ------------------------- | -------------------------------------------------------------------- |
-| `npm run dev`             | Start with tsx in watch mode                                         |
-| `npm run build`           | Compile to `dist/` (`tsc`, then `tsc-alias` to rewrite `@/` imports) |
-| `npm start`               | Run the compiled server                                              |
-| `npm run check`           | Type check and lint                                                  |
-| `npm run typecheck:watch` | Type check on every change; tsx doesn't type-check                   |
+| Script                    | Description                                    |
+| ------------------------- | ---------------------------------------------- |
+| `npm run dev`             | Start in watch mode                            |
+| `npm run build`           | Compile to `dist/`                             |
+| `npm start`               | Run the compiled build                         |
+| `npm run check`           | Type check and lint                            |
+| `npm run typecheck:watch` | Type check on every file change                |
 
-## API
+## API reference
 
-JSON in and out. Routes marked "Yes" under Auth require the `session` cookie, which signup and login set.
+All requests and responses use JSON. Protected routes need the `session` cookie, which is set on signup and login.
 
-| Method | Path                            | Auth | Body                           | Response                                         |
-| ------ | ------------------------------- | ---- | ------------------------------ | ------------------------------------------------ |
-| POST   | `/auth/signup`                  | No   | `{ email, password }`          | `201 { user }` and sets the cookie               |
-| POST   | `/auth/login`                   | No   | `{ email, password }`          | `200 { user }` and sets the cookie               |
-| POST   | `/auth/logout`                  | No   |                                | `204` and clears the cookie                      |
-| GET    | `/auth/me`                      | Yes  |                                | `200 { user }`                                   |
-| POST   | `/chat/send`                    | Yes  | `{ message, conversationId? }` | `201 { conversationId, messages }`               |
-| GET    | `/chat/history`                 | Yes  |                                | `200 { conversations }`, most recent first       |
-| GET    | `/chat/history/:conversationId` | Yes  |                                | `200 { messages }`, oldest first                 |
+### Auth
 
-**Response shapes**
+| Method | Endpoint       | Body                  | Response                    |
+| ------ | -------------- | --------------------- | --------------------------- |
+| POST   | `/auth/signup` | `{ email, password }` | `201 { user }`              |
+| POST   | `/auth/login`  | `{ email, password }` | `200 { user }`              |
+| POST   | `/auth/logout` |                       | `204`                       |
+| GET    | `/auth/me`     |                       | `200 { user }` (protected)  |
 
-| Shape          | Fields                                                    |
-| -------------- | --------------------------------------------------------- |
-| `user`         | `{ id, email }`                                           |
-| `conversation` | `{ id, title, createdAt, updatedAt }`                     |
-| `message`      | `{ id, conversationId, role, content, createdAt }`        |
+### Chat
 
-**Rules**
-- Passwords are 8 to 72 characters.
-- Messages are 1 to 4,000 characters.
-- Leave out `conversationId` to start a new conversation. Its title is the first 60 characters of the message.
-- Another user's conversation returns 404.
+All chat routes are protected.
+
+| Method | Endpoint                        | Body                           | Response                            |
+| ------ | ------------------------------- | ------------------------------ | ----------------------------------- |
+| POST   | `/chat/send`                    | `{ message, conversationId? }` | `201 { conversationId, messages }`  |
+| GET    | `/chat/history`                 |                                | `200 { conversations }`             |
+| GET    | `/chat/history/:conversationId` |                                | `200 { messages }`                  |
+
+Leave out `conversationId` to start a new conversation. `/chat/send` returns the saved user message and the assistant's reply.
+
+### Data shapes
+
+```ts
+type User = { id: string; email: string };
+type Conversation = { id: string; title: string; createdAt: string; updatedAt: string };
+type Message = { id: string; conversationId: string; role: "user" | "assistant"; content: string; createdAt: string };
+```
+
+### Validation
+
+- Passwords must be 8 to 72 characters.
+- Messages must be 1 to 4000 characters.
+- Requesting a conversation that belongs to another user returns `404`.
 
 ### Errors
 
-Errors return `{ "error": "message" }`. Validation errors (400) also include `details.fieldErrors`.
+Errors return `{ "error": "message" }`. Validation errors also include `details.fieldErrors`.
 
-| Status | When                                                    |
-| ------ | ------------------------------------------------------- |
-| 400    | Invalid body, parameter or JSON                         |
-| 401    | Missing or expired session, or wrong credentials        |
-| 404    | Unknown route or conversation                           |
-| 409    | Email already registered                                |
-| 429    | Rate limited (100 per 15 min, 20 for login and signup)  |
-| 502    | AI provider failed or returned an empty reply           |
-| 503    | AI provider is busy                                     |
+| Status | Meaning                                         |
+| ------ | ----------------------------------------------- |
+| 400    | Invalid request body or parameter               |
+| 401    | Not logged in, or wrong email or password       |
+| 404    | Route or conversation not found                 |
+| 409    | Email already registered                        |
+| 429    | Too many requests                               |
+| 502    | The AI provider failed                          |
+| 503    | The AI provider is busy                         |
 
-Each response has an `X-Request-Id` header that matches `reqId` in the logs.
+Rate limits are 100 requests per 15 minutes per IP, and 20 per 15 minutes for login and signup.
 
-### Postman
+## How replies are generated
 
-Import [`postman/support-agent.postman_collection.json`](postman/support-agent.postman_collection.json). It documents every route and includes example responses and tests. Postman keeps the session cookie, and the new-conversation request saves `conversationId` for the follow-ups.
+When a message is sent, the server loads the last 20 messages of the conversation and sends them to OpenRouter with a system prompt. If the configured model is unavailable, OpenRouter falls back to its free model router. The user message and the reply are saved together once the reply arrives, so a failed request doesn't leave a partial conversation.
 
-## Structure
+## Project structure
 
 ```
 src/
-  server.ts           database connection, HTTP server, graceful shutdown
-  app.ts              middleware, routes, error handling
-  auth/               signup, login, logout, sessions, requireAuth
-  chat/               send message, conversation and message history
-  llm/openrouter.ts   OpenRouter client, system prompt, error mapping
-  models/             User, Conversation, Message
-  middleware/         request logger, error handler
-  config/             env validation, logger, database
-  lib/errors.ts       error normalisation
+  auth/          signup, login, logout and session handling
+  chat/          sending messages and reading history
+  llm/           OpenRouter client and system prompt
+  models/        Mongoose models for users, conversations and messages
+  middleware/    rate limiting, request logging and error handling
+  config/        environment, logger and database setup
+  app.ts         Express app
+  server.ts      entry point for Docker and local development
+  vercel.ts      entry point for Vercel
 ```
 
-Each feature has three parts:
-- `*.routes.ts`: HTTP handling.
-- `*.service.ts`: logic.
-- `*.schema.ts`: zod validation.
+## Deployment
 
-Imports outside the current folder use `@/`.
-
-## How it works
-
-### Sessions
-- Login creates a 7-day HS256 JWT in an `httpOnly` cookie named `session`.
-- The cookie is `Secure` when the request came over HTTPS, including behind a proxy.
-- `requireAuth` sets `req.userId`, and every query is filtered by it.
-- Logout clears the cookie. Tokens are stateless, so a token copied before logout stays valid until it expires.
-- Indexes, including the unique email index, are created at startup before the server accepts requests. Signup relies on that index: a duplicate email is rejected atomically by MongoDB and returned as 409.
-
-### AI replies
-For each message, the server:
-1. Loads the last 20 messages of the conversation.
-2. Sends the system prompt, that history and the new message to OpenRouter. It tries `OPENROUTER_MODEL` first, then `openrouter/free`, with a 60-second timeout.
-3. Saves the message and the reply together, only if the model answers.
-
-Messages older than the last 20 aren't sent to the model.
-
-### Logging
-- Development prints one line per request, for example `POST /chat/send 201 1834ms`.
-- Production prints one JSON line per request.
-- Expected failures log the reason without a stack trace. Unexpected errors include the stack.
-- `/health` isn't logged.
-
-## Docker
-
-The [`Dockerfile`](Dockerfile) compiles in one stage and runs `dist/` with production dependencies only, as the non-root `node` user. The root [`docker-compose.yml`](../docker-compose.yml) runs it with `server/.env` and `NODE_ENV=production`.
-
-## Vercel
-
-[`vercel.json`](vercel.json) runs `npm run build` and sends every request to [`api/index.js`](api/index.js). That file re-exports `src/vercel.ts`, which wraps the same Express app and connects to MongoDB on the first request. Steps are in the [root README](../README.md#deploy-to-vercel).
+- **Docker:** the [Dockerfile](Dockerfile) builds a production image that runs `dist/server.js`. See [docker-compose.yml](../docker-compose.yml) at the repository root.
+- **Vercel:** [vercel.json](vercel.json) builds the project and routes every request to [api/index.js](api/index.js), which loads the compiled app.

@@ -1,112 +1,104 @@
-# Harbor: AI Customer Support Agent
+# AI Customer Support Agent
 
-A full-stack support chat. Users sign up, ask an AI assistant about orders, deliveries, returns and their account, and reopen past conversations later. Conversations are stored in MongoDB per user.
+A full-stack chat application where users talk to an AI customer support assistant. Users create an account, ask questions about orders, deliveries and returns, and can come back to their previous conversations at any time.
 
-**Live:** app at https://virallens-assignment-8omx.vercel.app, API at https://virallens-assignment-seven.vercel.app.
-
-| Part                | Stack                                                                 | Docs                                     |
-| ------------------- | --------------------------------------------------------------------- | ---------------------------------------- |
-| [`client/`](client) | React 19, Vite, TypeScript, Tailwind CSS 4, shadcn/ui, Zustand, SWR   | [client/README.md](client/README.md)     |
-| [`server/`](server) | Node.js 22, Express 5, TypeScript, MongoDB (Mongoose), JWT, bcrypt    | [server/README.md](server/README.md)     |
-| AI                  | [OpenRouter](https://openrouter.ai) via `@openrouter/sdk`             | [AI replies](server/README.md#ai-replies) |
+**Live demo:** https://virallens-assignment-8omx.vercel.app
 
 ## Features
 
-- **Auth:** signup, login and logout with JWT. Passwords are hashed with bcrypt. The session is an `httpOnly` cookie, and chat routes require it.
-- **Chat:** AI replies, history saved per user, past conversations in a sidebar.
-- **AI:** OpenRouter with a support-agent prompt. It receives the last 20 messages as context and falls back to a free model when the chosen one is busy.
-- **Typing indicator:** shown while a reply is generated. Failed messages offer a retry.
-- **Rate limiting:** 100 requests per 15 minutes per IP, and 20 for login and signup.
-- **Environment configs:** `NODE_ENV` switches logging and error detail. The cookie is `Secure` automatically over HTTPS.
-- **Docker:** `docker compose up` runs the client and server. The database is MongoDB Atlas.
+- Sign up, log in and log out with JWT sessions stored in an httpOnly cookie
+- Passwords hashed with bcrypt
+- AI replies through OpenRouter, using the recent conversation as context
+- Conversation history stored per user in MongoDB
+- Typing indicator, and retry for messages that fail to send
+- Rate limiting, with a stricter limit on login and signup
+- Light and dark themes
+- Docker Compose setup and Vercel deployment
 
-## Architecture
+## Tech stack
 
-```
-Browser --> client container (nginx, :8080)
-              /        React app
-              /api/*   --> server container (Express, :4000) --> MongoDB Atlas
-                                                             --> OpenRouter
-```
+| Layer    | Tools                                                                            |
+| -------- | -------------------------------------------------------------------------------- |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS, shadcn/ui, Zustand, SWR, React Router |
+| Backend  | Node.js, Express 5, TypeScript, Mongoose, Zod, Pino                              |
+| Database | MongoDB Atlas                                                                    |
+| AI       | OpenRouter                                                                       |
+| Tooling  | ESLint, Docker, Vercel                                                           |
 
-In Docker, nginx serves the app and the API from one origin. In development the client (`:5173`) calls the server (`:4000`) directly, and CORS allows that origin.
+## Getting started
 
-## Run with Docker
+### Prerequisites
 
-Requires Docker Compose v2, a MongoDB Atlas connection string and an OpenRouter API key. In Atlas Network Access, allow your machine's IP address.
+- Node.js 22 or newer
+- A MongoDB Atlas cluster (the free tier is enough)
+- An OpenRouter API key
+
+### Configuration
 
 ```bash
 cp server/.env.example server/.env
+cp client/.env.example client/.env
+```
+
+In `server/.env`, set `MONGO_URI`, `JWT_SECRET` and `OPENROUTER_API_KEY`. You can generate a secret with `openssl rand -hex 32`. All variables are listed in the [server README](server/README.md#environment-variables).
+
+### Run with Docker
+
+```bash
 docker compose up --build
 ```
 
-Before starting, set `MONGO_URI`, `JWT_SECRET` (`openssl rand -hex 32`) and `OPENROUTER_API_KEY` in `server/.env`.
+The app runs at http://localhost:8080 and the API at http://localhost:4000. MongoDB isn't part of the Compose setup. The server connects to the `MONGO_URI` in `server/.env`, so allow your IP address in Atlas Network Access.
 
-- App: http://localhost:8080
-- API: http://localhost:4000, for the [Postman collection](server/postman/support-agent.postman_collection.json)
+### Run locally
 
-Stop with `docker compose down`.
-
-## Run locally
-
-Requires Node.js 22 or newer.
+Start the API:
 
 ```bash
-cd server && cp .env.example .env && npm install && npm run dev
-cd client && cp .env.example .env && npm install && npm run dev
+cd server
+npm install
+npm run dev
 ```
 
-The API runs on http://localhost:4000 and the app on http://localhost:5173.
+In a second terminal, start the frontend:
 
-Both projects have the same scripts:
+```bash
+cd client
+npm install
+npm run dev
+```
 
-| Script              | Purpose                    |
-| ------------------- | -------------------------- |
-| `npm run dev`       | Start in watch mode        |
-| `npm run build`     | Production build           |
-| `npm run check`     | Type check and lint        |
+The app runs at http://localhost:5173 and the API at http://localhost:4000.
 
 ## API
 
-| Method | Path                            | Auth | Purpose                                 |
-| ------ | ------------------------------- | ---- | --------------------------------------- |
-| POST   | `/auth/signup`                  | No   | Create an account and start a session   |
-| POST   | `/auth/login`                   | No   | Start a session                         |
-| POST   | `/auth/logout`                  | No   | End the session                         |
-| GET    | `/auth/me`                      | Yes  | Current user                            |
-| POST   | `/chat/send`                    | Yes  | Send a message and get the AI reply     |
-| GET    | `/chat/history`                 | Yes  | List conversations                      |
-| GET    | `/chat/history/:conversationId` | Yes  | List messages in a conversation         |
+| Method | Endpoint                        | Auth | Description                                   |
+| ------ | ------------------------------- | ---- | --------------------------------------------- |
+| POST   | `/auth/signup`                  | No   | Create an account                             |
+| POST   | `/auth/login`                   | No   | Log in                                        |
+| POST   | `/auth/logout`                  | No   | Log out                                       |
+| GET    | `/auth/me`                      | Yes  | Get the current user                          |
+| POST   | `/chat/send`                    | Yes  | Send a message and get the AI reply           |
+| GET    | `/chat/history`                 | Yes  | List the user's conversations                 |
+| GET    | `/chat/history/:conversationId` | Yes  | Get the messages of a conversation            |
 
-Details are in the [server README](server/README.md#api).
+Request and response formats are documented in the [server README](server/README.md#api-reference). A [Postman collection](server/postman/support-agent.postman_collection.json) is included for testing.
 
-## Design decisions
+## Project structure
 
-- **Cookie session, not localStorage.** Scripts can't read the token. The cookie is `SameSite=Lax` and becomes `Secure` behind HTTPS.
-- **Nothing is saved when the AI fails.** The message and the reply are stored together, only after the model answers.
-- **Validation at every boundary.** zod checks requests on the server and responses on the client.
-- **State split.** Zustand holds client state (session, messages being sent). SWR caches server data.
+```
+.
+  client/               React frontend
+  server/               Express API
+  docker-compose.yml    Runs the client and server together
+```
 
-## Deploy to Vercel
+## Deployment
 
-The app is deployed as two Vercel projects from this repository. The client forwards `/api/*` to the server, so the browser sees one origin and the session cookie stays first-party.
+The live demo runs on Vercel as two projects from this repository: one with the root directory set to `server`, and one set to `client`. The client forwards `/api/*` requests to the server, which keeps the app and the API on a single domain so the session cookie works without cross-site settings.
 
-| Project | Root directory | Config                                   |
-| ------- | -------------- | ---------------------------------------- |
-| Server  | `server`       | [`server/vercel.json`](server/vercel.json) |
-| Client  | `client`       | [`client/vercel.json`](client/vercel.json) |
-
-1. **MongoDB Atlas:** under Network Access, allow `0.0.0.0/0`. Vercel functions don't have fixed IP addresses.
-2. **Server project:**
-   - Import the repository in Vercel and set the root directory to `server`. Leave the build settings to `vercel.json`.
-   - Add these environment variables:
-     - `MONGO_URI`, `JWT_SECRET` and `OPENROUTER_API_KEY`.
-     - `OPENROUTER_MODEL`.
-     - `NODE_ENV=production` and `COOKIE_SAME_SITE=lax`.
-     - `CLIENT_ORIGIN`: use a placeholder until step 5.
-   - Deploy, then note the URL, for example `https://harbor-api.vercel.app`.
-3. **Point the client at the server:** in [`client/vercel.json`](client/vercel.json), set the `/api/:path*` destination to the server's domain. It currently points to `virallens-assignment-seven.vercel.app`. Commit and push.
-4. **Client project:** import the same repository with root directory `client` and framework preset Vite. Add `VITE_API_URL=/api` and deploy.
-5. **Finish:** set the server's `CLIENT_ORIGIN` to the client URL and redeploy the server.
-
-Check it by opening `https://<client>.vercel.app/api/health`, which should return `{"status":"ok"}`. Then sign up in the app.
+1. In MongoDB Atlas, allow access from `0.0.0.0/0` under Network Access, since Vercel doesn't use fixed IP addresses.
+2. Deploy the `server` directory. Add the variables from `server/.env.example`, with `NODE_ENV=production`.
+3. Set the server URL as the `/api/:path*` destination in [`client/vercel.json`](client/vercel.json).
+4. Deploy the `client` directory with the Vite preset and `VITE_API_URL=/api`.
+5. Set `CLIENT_ORIGIN` on the server to the client URL and redeploy the server.
