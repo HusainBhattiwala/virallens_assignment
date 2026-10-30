@@ -2,7 +2,7 @@
   "info": {
     "name": "AI Customer Support Agent API",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "REST API for the AI customer support chat app: JWT auth plus AI chat with history stored in MongoDB.\n\n## Getting started\n1. Start the server: `cd server && npm run dev` (requires a filled-in `.env`).\n2. Check `baseUrl` in the collection variables (default `http://localhost:4000`).\n3. Run **Auth → Sign up** (or **Log in**). Postman stores the session cookie automatically, so every request after that is authenticated.\n4. Run **Chat → Send message (new conversation)**. Its test script saves `conversationId` for the follow-up requests.\n\n## Resources\n| Method | Path | Purpose |\n|---|---|---|\n| POST | `/api/v1/auth/signup` | Create an account and start a session |\n| POST | `/api/v1/auth/login` | Start a session |\n| POST | `/api/v1/auth/logout` | End the session |\n| GET | `/api/v1/auth/me` | Current user |\n| POST | `/api/v1/chat/send` | Send a message (optionally to an existing conversation) and get the AI reply |\n| GET | `/api/v1/chat/history` | List conversations |\n| GET | `/api/v1/chat/history/:conversationId` | List messages in a conversation |\n\nRun the whole collection top to bottom with the Collection Runner for a full end-to-end check.\n\n## Authentication\nLogin and signup set an `httpOnly` cookie named `session` containing a JWT valid for 7 days. Routes under `/api/v1/auth/me` and `/api/v1/chat` require it.\nBrowser clients must send requests with `credentials: \"include\"` (fetch) or `withCredentials: true` (axios).\n\n## Error format\nEvery error response has the same shape:\n```json\n{ \"error\": \"Human readable message\" }\n```\nValidation failures (400) also include `details` with `formErrors` and per-field `fieldErrors`.\n\n| Status | Meaning |\n|---|---|\n| 400 | Request body or URL parameter failed validation, or malformed JSON |\n| 401 | Missing, invalid or expired session, or wrong credentials |\n| 404 | Route or conversation not found (other users' conversations also return 404) |\n| 409 | Email already registered |\n| 429 | Rate limit exceeded |\n| 502 | The AI provider failed or returned an empty reply |\n| 503 | The AI provider is rate limiting (common on free models) |\n\n## Rate limits\n- All routes: 100 requests per 15 minutes per IP.\n- `POST /auth/signup` and `POST /auth/login`: 20 requests per 15 minutes per IP (shared).\n\nResponses include `RateLimit` and `RateLimit-Policy` headers, and every response carries an `X-Request-Id` header that matches the server log line for that request."
+    "description": "REST API for the AI customer support chat app: JWT auth plus AI chat with history stored in MongoDB.\n\n## Getting started\n1. Start the server: `bun run --filter @support-agent/server dev` from the repository root (requires a filled-in `.env`).\n2. Check `baseUrl` in the collection variables (default `http://localhost:4000`).\n3. Run **Auth → Sign up** (or **Log in**). Postman stores the session cookie automatically, so every request after that is authenticated.\n4. Run **Chat → Send message (new conversation)**. Its test script saves `conversationId` for the follow-up requests.\n5. The Chat folder ends by deleting that conversation, so the collection can be run repeatedly.\n\n## Resources\n| Method | Path | Purpose |\n|---|---|---|\n| POST | `/api/v1/auth/signup` | Create an account and start a session |\n| POST | `/api/v1/auth/login` | Start a session |\n| POST | `/api/v1/auth/logout` | End the session |\n| GET | `/api/v1/auth/me` | Current user |\n| POST | `/api/v1/chat/send` | Send a message (optionally to an existing conversation) and get the AI reply |\n| GET | `/api/v1/chat/history` | List conversations, with cursor pagination and title search |\n| GET | `/api/v1/chat/history/:conversationId` | Get a conversation and its messages |\n| PATCH | `/api/v1/chat/history/:conversationId` | Rename a conversation |\n| DELETE | `/api/v1/chat/history/:conversationId` | Delete a conversation and its messages |\n| POST | `/api/v1/chat/history/:conversationId/title` | Generate a title with the AI |\n\nRun the whole collection top to bottom with the Collection Runner for a full end-to-end check.\n\n## Authentication\nLogin and signup set an `httpOnly` cookie named `session` containing a JWT valid for 7 days. Routes under `/api/v1/auth/me` and `/api/v1/chat` require it.\nBrowser clients must send requests with `credentials: \"include\"` (fetch) or `withCredentials: true` (axios).\n\n## Error format\nEvery error response has the same shape:\n```json\n{ \"error\": \"Human readable message\" }\n```\nValidation failures (400) also include `details` with `formErrors` and per-field `fieldErrors`.\n\n| Status | Meaning |\n|---|---|\n| 400 | Request body or URL parameter failed validation, or malformed JSON |\n| 401 | Missing, invalid or expired session, or wrong credentials |\n| 404 | Route or conversation not found (other users' conversations also return 404) |\n| 409 | Email already registered |\n| 429 | Rate limit exceeded |\n| 502 | The AI provider failed or returned an empty reply |\n| 503 | The AI provider is rate limiting (common on free models) |\n\n## Rate limits\n- All routes: 100 requests per 15 minutes per IP.\n- `POST /auth/signup` and `POST /auth/login`: 20 requests per 15 minutes per IP (shared).\n\nResponses include `RateLimit` and `RateLimit-Policy` headers, and every response carries an `X-Request-Id` header that matches the server log line for that request."
   },
   "variable": [
     {
@@ -19,6 +19,10 @@
     },
     {
       "key": "conversationId",
+      "value": ""
+    },
+    {
+      "key": "nextCursor",
       "value": ""
     }
   ],
@@ -565,7 +569,7 @@
                   "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
                   "const body = pm.response.json();",
                   "pm.test(\"returns the user message and the reply\", () => pm.expect(body.messages.map((m) => m.role)).to.eql([\"user\", \"assistant\"]));",
-                  "pm.collectionVariables.set(\"conversationId\", body.conversationId);"
+                  "pm.collectionVariables.set(\"conversationId\", body.conversation.id);"
                 ]
               }
             }
@@ -590,7 +594,7 @@
                 "send"
               ]
             },
-            "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation; its title is the first 60 characters of the message.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nThe test script saves `conversationId` for the requests that follow.",
+            "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation. Its title starts as the first 60 characters of the message; call **Generate title** afterwards to replace it with a short AI-written title.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nReturns the conversation and the two new messages. The test script saves `conversation.id` as `conversationId` for the requests that follow.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"message\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\"\n}",
@@ -624,7 +628,7 @@
                     "send"
                   ]
                 },
-                "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation; its title is the first 60 characters of the message.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nThe test script saves `conversationId` for the requests that follow.",
+                "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation. Its title starts as the first 60 characters of the message; call **Generate title** afterwards to replace it with a short AI-written title.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nReturns the conversation and the two new messages. The test script saves `conversation.id` as `conversationId` for the requests that follow.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"message\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\"\n}",
@@ -644,7 +648,7 @@
                   "value": "application/json; charset=utf-8"
                 }
               ],
-              "body": "{\n  \"conversationId\": \"6ae4629359ba7c313eaf5e27\",\n  \"messages\": [\n    {\n      \"id\": \"6ae4629359ba7c313eaf5e28\",\n      \"conversationId\": \"6ae4629359ba7c313eaf5e27\",\n      \"role\": \"user\",\n      \"content\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\",\n      \"createdAt\": \"2026-10-30T09:25:39.257Z\"\n    },\n    {\n      \"id\": \"6ae4629359ba7c313eaf5e29\",\n      \"conversationId\": \"6ae4629359ba7c313eaf5e27\",\n      \"role\": \"assistant\",\n      \"content\": \"I'm sorry your order hasn't arrived yet. Could you share your order email so I can look into it?\",\n      \"createdAt\": \"2026-10-30T09:25:39.257Z\"\n    }\n  ]\n}"
+              "body": "{\n  \"conversation\": {\n    \"id\": \"6ae4629359ba7c313eaf5e27\",\n    \"title\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\",\n    \"createdAt\": \"2026-10-30T09:25:39.252Z\",\n    \"updatedAt\": \"2026-10-30T09:25:41.309Z\"\n  },\n  \"messages\": [\n    {\n      \"id\": \"6ae4629359ba7c313eaf5e28\",\n      \"conversationId\": \"6ae4629359ba7c313eaf5e27\",\n      \"role\": \"user\",\n      \"content\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\",\n      \"createdAt\": \"2026-10-30T09:25:39.257Z\"\n    },\n    {\n      \"id\": \"6ae4629359ba7c313eaf5e29\",\n      \"conversationId\": \"6ae4629359ba7c313eaf5e27\",\n      \"role\": \"assistant\",\n      \"content\": \"I'm sorry your order hasn't arrived yet. Could you share your order email so I can look into it?\",\n      \"createdAt\": \"2026-10-30T09:25:39.257Z\"\n    }\n  ]\n}"
             },
             {
               "name": "400 Validation failed",
@@ -668,7 +672,7 @@
                     "send"
                   ]
                 },
-                "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation; its title is the first 60 characters of the message.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nThe test script saves `conversationId` for the requests that follow.",
+                "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation. Its title starts as the first 60 characters of the message; call **Generate title** afterwards to replace it with a short AI-written title.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nReturns the conversation and the two new messages. The test script saves `conversation.id` as `conversationId` for the requests that follow.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"message\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\"\n}",
@@ -712,7 +716,7 @@
                     "send"
                   ]
                 },
-                "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation; its title is the first 60 characters of the message.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nThe test script saves `conversationId` for the requests that follow.",
+                "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation. Its title starts as the first 60 characters of the message; call **Generate title** afterwards to replace it with a short AI-written title.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nReturns the conversation and the two new messages. The test script saves `conversation.id` as `conversationId` for the requests that follow.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"message\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\"\n}",
@@ -756,7 +760,7 @@
                     "send"
                   ]
                 },
-                "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation; its title is the first 60 characters of the message.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nThe test script saves `conversationId` for the requests that follow.",
+                "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation. Its title starts as the first 60 characters of the message; call **Generate title** afterwards to replace it with a short AI-written title.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nReturns the conversation and the two new messages. The test script saves `conversation.id` as `conversationId` for the requests that follow.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"message\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\"\n}",
@@ -800,7 +804,7 @@
                     "send"
                   ]
                 },
-                "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation; its title is the first 60 characters of the message.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nThe test script saves `conversationId` for the requests that follow.",
+                "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation. Its title starts as the first 60 characters of the message; call **Generate title** afterwards to replace it with a short AI-written title.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nReturns the conversation and the two new messages. The test script saves `conversation.id` as `conversationId` for the requests that follow.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"message\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\"\n}",
@@ -844,7 +848,7 @@
                     "send"
                   ]
                 },
-                "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation; its title is the first 60 characters of the message.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nThe test script saves `conversationId` for the requests that follow.",
+                "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation. Its title starts as the first 60 characters of the message; call **Generate title** afterwards to replace it with a short AI-written title.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nReturns the conversation and the two new messages. The test script saves `conversation.id` as `conversationId` for the requests that follow.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"message\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\"\n}",
@@ -869,6 +873,106 @@
           ]
         },
         {
+          "name": "Generate title",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"returns a title\", () => pm.expect(pm.response.json().conversation.title).to.be.a(\"string\").that.is.not.empty);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chat/history/{{conversationId}}/title",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "chat",
+                "history",
+                "{{conversationId}}",
+                "title"
+              ]
+            },
+            "description": "Asks the AI for a short title based on the first messages of the conversation and saves it. Returns the updated conversation. If the AI is unavailable the current title is kept.\n\nUpdating the title does not change `updatedAt`, so the conversation keeps its place in the list."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/chat/history/{{conversationId}}/title",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "chat",
+                    "history",
+                    "{{conversationId}}",
+                    "title"
+                  ]
+                },
+                "description": "Asks the AI for a short title based on the first messages of the conversation and saves it. Returns the updated conversation. If the AI is unavailable the current title is kept.\n\nUpdating the title does not change `updatedAt`, so the conversation keeps its place in the list."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"conversation\": {\n    \"id\": \"6ae4629359ba7c313eaf5e27\",\n    \"title\": \"Order #1234 delivery delay\",\n    \"createdAt\": \"2026-10-30T09:25:39.252Z\",\n    \"updatedAt\": \"2026-10-30T09:25:41.309Z\"\n  }\n}"
+            },
+            {
+              "name": "404 Conversation not found",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/chat/history/{{conversationId}}/title",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "chat",
+                    "history",
+                    "{{conversationId}}",
+                    "title"
+                  ]
+                },
+                "description": "Asks the AI for a short title based on the first messages of the conversation and saves it. Returns the updated conversation. If the AI is unavailable the current title is kept.\n\nUpdating the title does not change `updatedAt`, so the conversation keeps its place in the list."
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"Conversation not found\"\n}"
+            }
+          ]
+        },
+        {
           "name": "Send message (continue conversation)",
           "event": [
             {
@@ -877,7 +981,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
-                  "pm.test(\"stays in the same conversation\", () => pm.expect(pm.response.json().conversationId).to.eql(pm.collectionVariables.get(\"conversationId\")));"
+                  "pm.test(\"stays in the same conversation\", () => pm.expect(pm.response.json().conversation.id).to.eql(pm.collectionVariables.get(\"conversationId\")));"
                 ]
               }
             }
@@ -969,7 +1073,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"returns conversations\", () => pm.expect(pm.response.json().conversations).to.be.an(\"array\").that.is.not.empty);"
+                  "const body = pm.response.json();",
+                  "pm.test(\"returns a page of conversations\", () => pm.expect(body.conversations).to.be.an(\"array\").that.is.not.empty);",
+                  "pm.test(\"includes nextCursor\", () => pm.expect(body).to.have.property(\"nextCursor\"));",
+                  "pm.collectionVariables.set(\"nextCursor\", body.nextCursor ?? \"\");"
                 ]
               }
             }
@@ -978,7 +1085,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/chat/history",
+              "raw": "{{baseUrl}}/api/v1/chat/history?limit=20",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -987,9 +1094,28 @@
                 "v1",
                 "chat",
                 "history"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Page size, 1 to 50. Defaults to 20."
+                },
+                {
+                  "key": "q",
+                  "value": "order",
+                  "description": "Case-insensitive title search, up to 100 characters.",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "{{nextCursor}}",
+                  "description": "The `nextCursor` from the previous page.",
+                  "disabled": true
+                }
               ]
             },
-            "description": "Returns the user's conversations, most recently active first."
+            "description": "Returns one page of the user's conversations, most recently active first.\n\nPagination is cursor based. Each response has a `nextCursor`; pass it back as `cursor` to get the next page. `nextCursor` is `null` on the last page. Cursors are opaque, and conversations created or updated while paging never cause duplicates or skipped items.\n\n| Query | Rules |\n|---|---|\n| `limit` | 1 to 50, default 20 |\n| `q` | Optional title search, up to 100 characters |\n| `cursor` | Optional, from a previous response |\n\nThe test script saves `nextCursor` so you can enable `cursor` and send again."
           },
           "response": [
             {
@@ -998,7 +1124,7 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/api/v1/chat/history",
+                  "raw": "{{baseUrl}}/api/v1/chat/history?limit=20",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -1007,9 +1133,28 @@
                     "v1",
                     "chat",
                     "history"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "description": "Page size, 1 to 50. Defaults to 20."
+                    },
+                    {
+                      "key": "q",
+                      "value": "order",
+                      "description": "Case-insensitive title search, up to 100 characters.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "cursor",
+                      "value": "{{nextCursor}}",
+                      "description": "The `nextCursor` from the previous page.",
+                      "disabled": true
+                    }
                   ]
                 },
-                "description": "Returns the user's conversations, most recently active first."
+                "description": "Returns one page of the user's conversations, most recently active first.\n\nPagination is cursor based. Each response has a `nextCursor`; pass it back as `cursor` to get the next page. `nextCursor` is `null` on the last page. Cursors are opaque, and conversations created or updated while paging never cause duplicates or skipped items.\n\n| Query | Rules |\n|---|---|\n| `limit` | 1 to 50, default 20 |\n| `q` | Optional title search, up to 100 characters |\n| `cursor` | Optional, from a previous response |\n\nThe test script saves `nextCursor` so you can enable `cursor` and send again."
               },
               "status": "OK",
               "code": 200,
@@ -1020,15 +1165,15 @@
                   "value": "application/json; charset=utf-8"
                 }
               ],
-              "body": "{\n  \"conversations\": [\n    {\n      \"id\": \"6ae4629359ba7c313eaf5e27\",\n      \"title\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\",\n      \"createdAt\": \"2026-10-30T09:25:39.252Z\",\n      \"updatedAt\": \"2026-10-30T09:25:41.309Z\"\n    }\n  ]\n}"
+              "body": "{\n  \"conversations\": [\n    {\n      \"id\": \"6ae4629359ba7c313eaf5e27\",\n      \"title\": \"Order #1234 delivery delay\",\n      \"createdAt\": \"2026-10-30T09:25:39.252Z\",\n      \"updatedAt\": \"2026-10-30T09:25:41.309Z\"\n    }\n  ],\n  \"nextCursor\": null\n}"
             },
             {
-              "name": "401 Not authenticated",
+              "name": "400 Invalid cursor",
               "originalRequest": {
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/api/v1/chat/history",
+                  "raw": "{{baseUrl}}/api/v1/chat/history?limit=20",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -1037,9 +1182,77 @@
                     "v1",
                     "chat",
                     "history"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "description": "Page size, 1 to 50. Defaults to 20."
+                    },
+                    {
+                      "key": "q",
+                      "value": "order",
+                      "description": "Case-insensitive title search, up to 100 characters.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "cursor",
+                      "value": "{{nextCursor}}",
+                      "description": "The `nextCursor` from the previous page.",
+                      "disabled": true
+                    }
                   ]
                 },
-                "description": "Returns the user's conversations, most recently active first."
+                "description": "Returns one page of the user's conversations, most recently active first.\n\nPagination is cursor based. Each response has a `nextCursor`; pass it back as `cursor` to get the next page. `nextCursor` is `null` on the last page. Cursors are opaque, and conversations created or updated while paging never cause duplicates or skipped items.\n\n| Query | Rules |\n|---|---|\n| `limit` | 1 to 50, default 20 |\n| `q` | Optional title search, up to 100 characters |\n| `cursor` | Optional, from a previous response |\n\nThe test script saves `nextCursor` so you can enable `cursor` and send again."
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"Validation failed\",\n  \"details\": {\n    \"formErrors\": [],\n    \"fieldErrors\": {\n      \"cursor\": [\n        \"Invalid cursor\"\n      ]\n    }\n  }\n}"
+            },
+            {
+              "name": "401 Not authenticated",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/chat/history?limit=20",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "chat",
+                    "history"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "description": "Page size, 1 to 50. Defaults to 20."
+                    },
+                    {
+                      "key": "q",
+                      "value": "order",
+                      "description": "Case-insensitive title search, up to 100 characters.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "cursor",
+                      "value": "{{nextCursor}}",
+                      "description": "The `nextCursor` from the previous page.",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Returns one page of the user's conversations, most recently active first.\n\nPagination is cursor based. Each response has a `nextCursor`; pass it back as `cursor` to get the next page. `nextCursor` is `null` on the last page. Cursors are opaque, and conversations created or updated while paging never cause duplicates or skipped items.\n\n| Query | Rules |\n|---|---|\n| `limit` | 1 to 50, default 20 |\n| `q` | Optional title search, up to 100 characters |\n| `cursor` | Optional, from a previous response |\n\nThe test script saves `nextCursor` so you can enable `cursor` and send again."
               },
               "status": "Unauthorized",
               "code": 401,
@@ -1055,7 +1268,7 @@
           ]
         },
         {
-          "name": "Get conversation messages",
+          "name": "Get conversation",
           "event": [
             {
               "listen": "test",
@@ -1084,7 +1297,7 @@
                 "{{conversationId}}"
               ]
             },
-            "description": "Returns every message in one conversation, oldest first."
+            "description": "Returns the conversation and all of its messages, oldest first."
           },
           "response": [
             {
@@ -1105,7 +1318,7 @@
                     "{{conversationId}}"
                   ]
                 },
-                "description": "Returns every message in one conversation, oldest first."
+                "description": "Returns the conversation and all of its messages, oldest first."
               },
               "status": "OK",
               "code": 200,
@@ -1116,7 +1329,7 @@
                   "value": "application/json; charset=utf-8"
                 }
               ],
-              "body": "{\n  \"messages\": [\n    {\n      \"id\": \"6ae4629359ba7c313eaf5e28\",\n      \"conversationId\": \"6ae4629359ba7c313eaf5e27\",\n      \"role\": \"user\",\n      \"content\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\",\n      \"createdAt\": \"2026-10-30T09:25:39.257Z\"\n    },\n    {\n      \"id\": \"6ae4629359ba7c313eaf5e29\",\n      \"conversationId\": \"6ae4629359ba7c313eaf5e27\",\n      \"role\": \"assistant\",\n      \"content\": \"I'm sorry your order hasn't arrived yet. Could you share your order email so I can look into it?\",\n      \"createdAt\": \"2026-10-30T09:25:39.257Z\"\n    }\n  ]\n}"
+              "body": "{\n  \"conversation\": {\n    \"id\": \"6ae4629359ba7c313eaf5e27\",\n    \"title\": \"Order #1234 delivery delay\",\n    \"createdAt\": \"2026-10-30T09:25:39.252Z\",\n    \"updatedAt\": \"2026-10-30T09:25:41.309Z\"\n  },\n  \"messages\": [\n    {\n      \"id\": \"6ae4629359ba7c313eaf5e28\",\n      \"conversationId\": \"6ae4629359ba7c313eaf5e27\",\n      \"role\": \"user\",\n      \"content\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\",\n      \"createdAt\": \"2026-10-30T09:25:39.257Z\"\n    },\n    {\n      \"id\": \"6ae4629359ba7c313eaf5e29\",\n      \"conversationId\": \"6ae4629359ba7c313eaf5e27\",\n      \"role\": \"assistant\",\n      \"content\": \"I'm sorry your order hasn't arrived yet. Could you share your order email so I can look into it?\",\n      \"createdAt\": \"2026-10-30T09:25:39.257Z\"\n    }\n  ]\n}"
             },
             {
               "name": "400 Invalid id",
@@ -1136,7 +1349,7 @@
                     "{{conversationId}}"
                   ]
                 },
-                "description": "Returns every message in one conversation, oldest first."
+                "description": "Returns the conversation and all of its messages, oldest first."
               },
               "status": "Bad Request",
               "code": 400,
@@ -1167,7 +1380,7 @@
                     "{{conversationId}}"
                   ]
                 },
-                "description": "Returns every message in one conversation, oldest first."
+                "description": "Returns the conversation and all of its messages, oldest first."
               },
               "status": "Not Found",
               "code": 404,
@@ -1198,7 +1411,7 @@
                     "{{conversationId}}"
                   ]
                 },
-                "description": "Returns every message in one conversation, oldest first."
+                "description": "Returns the conversation and all of its messages, oldest first."
               },
               "status": "Unauthorized",
               "code": 401,
@@ -1210,6 +1423,346 @@
                 }
               ],
               "body": "{\n  \"error\": \"Not authenticated\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Rename conversation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"title is updated\", () => pm.expect(pm.response.json().conversation.title).to.eql(\"Late delivery for order #1234\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chat/history/{{conversationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "chat",
+                "history",
+                "{{conversationId}}"
+              ]
+            },
+            "description": "Renames a conversation. Updating the title does not change `updatedAt`.\n\n| Field | Type | Rules |\n|---|---|---|\n| `title` | string | 1 to 100 characters after trimming |",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Late delivery for order #1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/chat/history/{{conversationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "chat",
+                    "history",
+                    "{{conversationId}}"
+                  ]
+                },
+                "description": "Renames a conversation. Updating the title does not change `updatedAt`.\n\n| Field | Type | Rules |\n|---|---|---|\n| `title` | string | 1 to 100 characters after trimming |",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Late delivery for order #1234\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"conversation\": {\n    \"id\": \"6ae4629359ba7c313eaf5e27\",\n    \"title\": \"Late delivery for order #1234\",\n    \"createdAt\": \"2026-10-30T09:25:39.252Z\",\n    \"updatedAt\": \"2026-10-30T09:25:41.309Z\"\n  }\n}"
+            },
+            {
+              "name": "400 Validation failed",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/chat/history/{{conversationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "chat",
+                    "history",
+                    "{{conversationId}}"
+                  ]
+                },
+                "description": "Renames a conversation. Updating the title does not change `updatedAt`.\n\n| Field | Type | Rules |\n|---|---|---|\n| `title` | string | 1 to 100 characters after trimming |",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Late delivery for order #1234\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"Validation failed\",\n  \"details\": {\n    \"formErrors\": [],\n    \"fieldErrors\": {\n      \"title\": [\n        \"Too small: expected string to have >=1 characters\"\n      ]\n    }\n  }\n}"
+            },
+            {
+              "name": "404 Conversation not found",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/chat/history/{{conversationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "chat",
+                    "history",
+                    "{{conversationId}}"
+                  ]
+                },
+                "description": "Renames a conversation. Updating the title does not change `updatedAt`.\n\n| Field | Type | Rules |\n|---|---|---|\n| `title` | string | 1 to 100 characters after trimming |",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Late delivery for order #1234\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"Conversation not found\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete conversation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chat/history/{{conversationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "chat",
+                "history",
+                "{{conversationId}}"
+              ]
+            },
+            "description": "Deletes a conversation and all of its messages. This cannot be undone."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/chat/history/{{conversationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "chat",
+                    "history",
+                    "{{conversationId}}"
+                  ]
+                },
+                "description": "Deletes a conversation and all of its messages. This cannot be undone."
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "header": [],
+              "body": ""
+            },
+            {
+              "name": "404 Conversation not found",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/chat/history/{{conversationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "chat",
+                    "history",
+                    "{{conversationId}}"
+                  ]
+                },
+                "description": "Deletes a conversation and all of its messages. This cannot be undone."
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"Conversation not found\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get deleted conversation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chat/history/{{conversationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "chat",
+                "history",
+                "{{conversationId}}"
+              ]
+            },
+            "description": "Confirms the deleted conversation is gone."
+          },
+          "response": [
+            {
+              "name": "404 Conversation not found",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/chat/history/{{conversationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "chat",
+                    "history",
+                    "{{conversationId}}"
+                  ]
+                },
+                "description": "Confirms the deleted conversation is gone."
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"Conversation not found\"\n}"
             }
           ]
         }

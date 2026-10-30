@@ -10,7 +10,7 @@ bun install
 bun run dev
 ```
 
-Run these from the `server` directory. `bun install` installs the whole workspace from the root lockfile.
+Run these from `apps/server`. `bun install` installs the whole workspace from the root lockfile. From the repository root, the same scripts run with `bun run --filter @support-agent/server <script>`.
 
 The API runs at http://localhost:4000. `GET /api/health` returns `{"status":"ok"}`.
 
@@ -57,13 +57,30 @@ All endpoints are under `/api/v1`. Requests and responses use JSON. Protected ro
 
 All chat routes are protected.
 
-| Method | Endpoint                               | Body                           | Response                            |
-| ------ | -------------------------------------- | ------------------------------ | ----------------------------------- |
-| POST   | `/api/v1/chat/send`                    | `{ message, conversationId? }` | `201 { conversationId, messages }`  |
-| GET    | `/api/v1/chat/history`                 |                                | `200 { conversations }`             |
-| GET    | `/api/v1/chat/history/:conversationId` |                                | `200 { messages }`                  |
+| Method | Endpoint                                     | Body                           | Response                             |
+| ------ | -------------------------------------------- | ------------------------------ | ------------------------------------ |
+| POST   | `/api/v1/chat/send`                          | `{ message, conversationId? }` | `201 { conversation, messages }`     |
+| GET    | `/api/v1/chat/history`                       |                                | `200 { conversations, nextCursor }`  |
+| GET    | `/api/v1/chat/history/:conversationId`       |                                | `200 { conversation, messages }`     |
+| PATCH  | `/api/v1/chat/history/:conversationId`       | `{ title }`                    | `200 { conversation }`               |
+| DELETE | `/api/v1/chat/history/:conversationId`       |                                | `204`                                |
+| POST   | `/api/v1/chat/history/:conversationId/title` |                                | `200 { conversation }`               |
 
-Leave out `conversationId` to start a new conversation. `/api/v1/chat/send` returns the saved user message and the assistant's reply.
+Leave out `conversationId` to start a new conversation. `/api/v1/chat/send` returns the conversation with the saved user message and the assistant's reply. A new conversation is titled with the start of its first message until `POST .../title` replaces it with a short title written by the AI.
+
+Renaming a conversation or generating its title doesn't change `updatedAt`, so it keeps its place in the list. Deleting a conversation also deletes its messages.
+
+### Pagination and search
+
+`GET /api/v1/chat/history` returns conversations most recently active first, one page at a time.
+
+| Query    | Description                                              |
+| -------- | -------------------------------------------------------- |
+| `limit`  | Page size, 1 to 50. Defaults to 20                       |
+| `cursor` | The `nextCursor` from the previous page                  |
+| `q`      | Case-insensitive search on the title, up to 100 characters |
+
+Pagination uses a cursor over `(updatedAt, _id)` rather than an offset, so conversations that are created or updated while a user scrolls don't cause duplicates or skipped items. The cursor is opaque and `nextCursor` is `null` on the last page. The query is served by the `{ user, updatedAt, _id }` index.
 
 ### Data shapes
 
@@ -77,6 +94,7 @@ type Message = { id: string; conversationId: string; role: "user" | "assistant";
 
 - Passwords must be 8 to 72 characters.
 - Messages must be 1 to 4000 characters.
+- Titles must be 1 to 100 characters.
 - Requesting a conversation that belongs to another user returns `404`.
 
 ### Errors
@@ -95,6 +113,13 @@ Errors return `{ "error": "message" }`. Validation errors also include `details.
 
 Rate limits are 100 requests per 15 minutes per IP, and 20 per 15 minutes for login and signup.
 
+## Security
+
+- Passwords are hashed with bcrypt.
+- Sessions are JWTs stored in an httpOnly `session` cookie that lasts 7 days. The cookie is `Secure` over HTTPS, and its `SameSite` value comes from `COOKIE_SAME_SITE`.
+- Helmet sets security headers, and CORS only allows `CLIENT_ORIGIN`.
+- Users can only read or change their own conversations. Any other conversation returns `404`.
+
 ## How replies are generated
 
 When a message is sent, the server loads the last 20 messages of the conversation and sends them to OpenRouter with a system prompt. If the configured model is unavailable, OpenRouter falls back to its free model router. The user message and the reply are saved together once the reply arrives, so a failed request doesn't leave a partial conversation.
@@ -104,7 +129,7 @@ When a message is sent, the server loads the last 20 messages of the conversatio
 ```
 src/
   auth/          signup, login, logout and session handling
-  chat/          sending messages and reading history
+  chat/          messages, conversation history, titles and pagination
   llm/           OpenRouter client and system prompt
   models/        Mongoose models for users, conversations and messages
   middleware/    rate limiting, request logging and error handling
@@ -117,4 +142,4 @@ src/
 ## Deployment
 
 - **Docker:** the [Dockerfile](Dockerfile) is built from the repository root so it can use the workspace lockfile. Bun installs the dependencies and Node runs `dist/server.js`. See [docker-compose.yml](../../docker-compose.yml).
-- **Vercel:** the API is deployed together with the frontend as one project. The root [`api/index.js`](../../api/index.js) loads `dist/vercel.js`, which connects to MongoDB and passes each `/api` request to the Express app. See the [root README](../../README.md#deployment).
+- **Vercel:** the API is deployed together with the frontend as one project. The root [`api/index.js`](../../api/index.js) loads `dist/vercel.js`, which connects to MongoDB and passes each `/api` request to the Express app. See the [deployment guide](../../docs/deployment.md).

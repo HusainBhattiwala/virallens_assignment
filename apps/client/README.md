@@ -12,7 +12,7 @@ bun install
 bun run dev
 ```
 
-Run these from the `client` directory. `bun install` installs the whole workspace from the root lockfile.
+Run these from `apps/client`. `bun install` installs the whole workspace from the root lockfile. From the repository root, the same scripts run with `bun run --filter @support-agent/client <script>`.
 
 The app runs at http://localhost:5173.
 
@@ -43,7 +43,9 @@ The app runs at http://localhost:5173.
 ## State and data fetching
 
 - Zustand stores the session and messages that are still being sent.
-- SWR fetches and caches conversations and messages.
+- SWR fetches and caches conversations and messages. The sidebar uses `useSWRInfinite` to load the next page of conversations when the end of the list scrolls into view, using the cursor returned by the API.
+- Conversation search is debounced by 300 ms and keeps the previous results on screen while the next ones load.
+- After a new conversation's first reply, the client asks the API for a generated title and updates the sidebar and header.
 - All requests go through `src/lib/api.ts`, which sends the session cookie and validates responses with Zod. A `401` from any request logs the user out.
 
 ## Project structure
@@ -51,7 +53,8 @@ The app runs at http://localhost:5173.
 ```
 src/
   features/auth/    API calls, store, forms, route guards and user menu
-  features/chat/    API calls, store, sidebar, message list and composer
+  features/chat/    API calls, store, sidebar, conversation list and dialogs, message list and composer
+  hooks/            shared hooks such as debouncing and infinite scroll
   components/       shared components; components/ui contains shadcn/ui
   lib/              API client and helpers
   App.tsx           routes
@@ -62,4 +65,4 @@ src/
 ## Deployment
 
 - **Docker:** the [Dockerfile](Dockerfile) is built from the repository root, installs the workspace with Bun, builds the app and serves it with nginx. [nginx.conf](nginx.conf) forwards `/api` requests to the server container unchanged.
-- **Vercel:** the frontend is deployed together with the API as one project. The root [`vercel.json`](../../vercel.json) serves `apps/client/dist`, sends `/api/*` to the API function and falls back to `index.html` for other routes. See the [root README](../../README.md#deployment).
+- **Vercel:** the frontend is deployed together with the API as one project. The root [`vercel.json`](../../vercel.json) serves `apps/client/dist`, sends `/api/*` to the API function and falls back to `index.html` for other routes. See the [deployment guide](../../docs/deployment.md).
