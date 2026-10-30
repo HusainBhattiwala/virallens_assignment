@@ -4,7 +4,7 @@
     "": {
       "name": "ai-customer-support-agent",
     },
-    "client": {
+    "apps/client": {
       "name": "@support-agent/client",
       "dependencies": {
         "@base-ui/react": "^1.9.0",
@@ -41,7 +41,7 @@
         "vite": "^8",
       },
     },
-    "server": {
+    "apps/server": {
       "name": "@support-agent/server",
       "dependencies": {
         "@openrouter/sdk": "^1.5.27",
@@ -318,9 +318,9 @@
 
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
 
-    "@support-agent/client": ["@support-agent/client@workspace:client"],
+    "@support-agent/client": ["@support-agent/client@workspace:apps/client"],
 
-    "@support-agent/server": ["@support-agent/server@workspace:server"],
+    "@support-agent/server": ["@support-agent/server@workspace:apps/server"],
 
     "@tailwindcss/node": ["@tailwindcss/node@4.3.3", "", { "dependencies": { "@jridgewell/remapping": "^2.3.5", "enhanced-resolve": "^5.24.1", "jiti": "^2.7.0", "lightningcss": "1.32.0", "magic-string": "^0.30.21", "source-map-js": "^1.2.1", "tailwindcss": "4.3.3" } }, "sha512-/T8IKEsf9VTU6tLjgC7+sv2mOPtQxzE2jMw7u4Tt40Tx+QSZxpzh95/H6cMKoja9XuW7iMdLJYBB0o9G1CaAgg=="],
 

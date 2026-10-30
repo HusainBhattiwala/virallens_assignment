@@ -10,5 +10,5 @@
 .vscode
 .cachebro
 .playwright-mcp
-server/postman
+apps/server/postman
 *.pdf

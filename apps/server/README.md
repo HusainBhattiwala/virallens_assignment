@@ -116,5 +116,5 @@ src/
 
 ## Deployment
 
-- **Docker:** the [Dockerfile](Dockerfile) is built from the repository root so it can use the workspace lockfile. Bun installs the dependencies and Node runs `dist/server.js`. See [docker-compose.yml](../docker-compose.yml).
-- **Vercel:** the API is deployed together with the frontend as one project. The root [`api/index.js`](../api/index.js) loads `dist/vercel.js`, which connects to MongoDB and passes each `/api` request to the Express app. See the [root README](../README.md#deployment).
+- **Docker:** the [Dockerfile](Dockerfile) is built from the repository root so it can use the workspace lockfile. Bun installs the dependencies and Node runs `dist/server.js`. See [docker-compose.yml](../../docker-compose.yml).
+- **Vercel:** the API is deployed together with the frontend as one project. The root [`api/index.js`](../../api/index.js) loads `dist/vercel.js`, which connects to MongoDB and passes each `/api` request to the Express app. See the [root README](../../README.md#deployment).

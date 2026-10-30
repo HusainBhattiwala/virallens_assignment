@@ -37,11 +37,11 @@ A full-stack chat application where users talk to an AI customer support assista
 ### Configuration
 
 ```bash
-cp server/.env.example server/.env
-cp client/.env.example client/.env
+cp apps/server/.env.example apps/server/.env
+cp apps/client/.env.example apps/client/.env
 ```
 
-In `server/.env`, set `MONGO_URI`, `JWT_SECRET` and `OPENROUTER_API_KEY`. You can generate a secret with `openssl rand -hex 32`. All variables are listed in the [server README](server/README.md#environment-variables).
+In `apps/server/.env`, set `MONGO_URI`, `JWT_SECRET` and `OPENROUTER_API_KEY`. You can generate a secret with `openssl rand -hex 32`. All variables are listed in the [server README](apps/server/README.md#environment-variables).
 
 ### Run with Docker
 
@@ -49,7 +49,7 @@ In `server/.env`, set `MONGO_URI`, `JWT_SECRET` and `OPENROUTER_API_KEY`. You ca
 docker compose up --build
 ```
 
-The app runs at http://localhost:8080 and the API at http://localhost:4000. MongoDB isn't part of the Compose setup. The server connects to the `MONGO_URI` in `server/.env`, so allow your IP address in Atlas Network Access.
+The app runs at http://localhost:8080 and the API at http://localhost:4000. MongoDB isn't part of the Compose setup. The server connects to the `MONGO_URI` in `apps/server/.env`, so allow your IP address in Atlas Network Access.
 
 ### Run locally
 
@@ -86,26 +86,27 @@ The API is versioned. All endpoints live under `/api/v1`, and the health check i
 | GET    | `/api/v1/chat/history`                 | Yes  | List the user's conversations        |
 | GET    | `/api/v1/chat/history/:conversationId` | Yes  | Get the messages of a conversation   |
 
-Request and response formats are documented in the [server README](server/README.md#api-reference). A [Postman collection](server/postman/support-agent.postman_collection.json) is included for testing.
+Request and response formats are documented in the [server README](apps/server/README.md#api-reference). A [Postman collection](apps/server/postman/support-agent.postman_collection.json) is included for testing.
 
 ## Project structure
 
 ```
 .
-  client/               React frontend (@support-agent/client)
-  server/               Express API (@support-agent/server)
+  apps/
+    client/             React frontend (@support-agent/client)
+    server/             Express API (@support-agent/server)
   package.json          Workspace definition and shared dependency versions
   bun.lock              Lockfile for the whole workspace
   docker-compose.yml    Runs the client and server together
   vercel.json           Vercel build and routing
-  api/index.js          Vercel function that serves the API
+  api/index.js          Vercel function entry, loads the compiled server
 ```
 
 Dependencies shared by both apps, such as TypeScript, ESLint and Zod, are versioned once in the `catalog` of the root `package.json`.
 
 ## Deployment
 
-The live demo runs on Vercel as a single project. [`vercel.json`](vercel.json) builds both apps, serves the frontend from `client/dist` and sends every `/api/*` request to the Express app through [`api/index.js`](api/index.js). The frontend and the API share one domain, so the session cookie works without cross-site settings.
+The live demo runs on Vercel as a single project. [`vercel.json`](vercel.json) builds both apps, serves the frontend from `apps/client/dist` and sends every `/api/*` request to the Express app through [`api/index.js`](api/index.js). The frontend and the API share one domain, so the session cookie works without cross-site settings.
 
 1. In MongoDB Atlas, allow access from `0.0.0.0/0` under Network Access, since Vercel doesn't use fixed IP addresses.
 2. Import the repository in Vercel and keep the root directory as the repository root. The build settings come from `vercel.json`.

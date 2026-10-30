@@ -62,4 +62,4 @@ src/
 ## Deployment
 
 - **Docker:** the [Dockerfile](Dockerfile) is built from the repository root, installs the workspace with Bun, builds the app and serves it with nginx. [nginx.conf](nginx.conf) forwards `/api` requests to the server container unchanged.
-- **Vercel:** the frontend is deployed together with the API as one project. The root [`vercel.json`](../vercel.json) serves `client/dist`, sends `/api/*` to the API function and falls back to `index.html` for other routes. See the [root README](../README.md#deployment).
+- **Vercel:** the frontend is deployed together with the API as one project. The root [`vercel.json`](../../vercel.json) serves `apps/client/dist`, sends `/api/*` to the API function and falls back to `index.html` for other routes. See the [root README](../../README.md#deployment).
