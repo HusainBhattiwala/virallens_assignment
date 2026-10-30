@@ -1,0 +1,18 @@
+import { model, Schema } from "mongoose";
+
+export const MESSAGE_ROLES = ["user", "assistant"] as const;
+
+export type MessageRole = (typeof MESSAGE_ROLES)[number];
+
+const messageSchema = new Schema(
+  {
+    conversation: { type: Schema.Types.ObjectId, ref: "Conversation", required: true },
+    role: { type: String, enum: MESSAGE_ROLES, required: true },
+    content: { type: String, required: true },
+  },
+  { timestamps: { createdAt: true, updatedAt: false } },
+);
+
+messageSchema.index({ conversation: 1, _id: 1 });
+
+export const Message = model("Message", messageSchema);

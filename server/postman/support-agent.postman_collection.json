@@ -1,0 +1,1285 @@
+{
+  "info": {
+    "name": "AI Customer Support Agent API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "REST API for the AI customer support chat app: JWT auth plus AI chat with history stored in MongoDB.\n\n## Getting started\n1. Start the server: `cd server && npm run dev` (requires a filled-in `.env`).\n2. Check `baseUrl` in the collection variables (default `http://localhost:4000`).\n3. Run **Auth → Sign up** (or **Log in**). Postman stores the session cookie automatically, so every request after that is authenticated.\n4. Run **Chat → Send message (new conversation)**. Its test script saves `conversationId` for the follow-up requests.\n\n## Resources\n| Method | Path | Purpose |\n|---|---|---|\n| POST | `/auth/signup` | Create an account and start a session |\n| POST | `/auth/login` | Start a session |\n| POST | `/auth/logout` | End the session |\n| GET | `/auth/me` | Current user |\n| POST | `/chat/send` | Send a message (optionally to an existing conversation) and get the AI reply |\n| GET | `/chat/history` | List conversations |\n| GET | `/chat/history/:conversationId` | List messages in a conversation |\n\nRun the whole collection top to bottom with the Collection Runner for a full end-to-end check.\n\n## Authentication\nLogin and signup set an `httpOnly` cookie named `session` containing a JWT valid for 7 days. Routes under `/auth/me` and `/chat` require it.\nBrowser clients must send requests with `credentials: \"include\"` (fetch) or `withCredentials: true` (axios).\n\n## Error format\nEvery error response has the same shape:\n```json\n{ \"error\": \"Human readable message\" }\n```\nValidation failures (400) also include `details` with `formErrors` and per-field `fieldErrors`.\n\n| Status | Meaning |\n|---|---|\n| 400 | Request body or URL parameter failed validation, or malformed JSON |\n| 401 | Missing, invalid or expired session, or wrong credentials |\n| 404 | Route or conversation not found (other users' conversations also return 404) |\n| 409 | Email already registered |\n| 429 | Rate limit exceeded |\n| 502 | The AI provider failed or returned an empty reply |\n| 503 | The AI provider is rate limiting (common on free models) |\n\n## Rate limits\n- All routes: 100 requests per 15 minutes per IP.\n- `POST /auth/signup` and `POST /auth/login`: 20 requests per 15 minutes per IP (shared).\n\nResponses include `RateLimit` and `RateLimit-Policy` headers, and every response carries an `X-Request-Id` header that matches the server log line for that request."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000"
+    },
+    {
+      "key": "email",
+      "value": "alice@example.com"
+    },
+    {
+      "key": "password",
+      "value": "supersecret"
+    },
+    {
+      "key": "conversationId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health check",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        },
+        "description": "Liveness check. No authentication required."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Liveness check. No authentication required."
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            }
+          ],
+          "body": "{\n  \"status\": \"ok\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "description": "Account creation and session management.",
+      "item": [
+        {
+          "name": "Sign up",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"email\", `user${Date.now()}@example.com`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"returns the user\", () => pm.expect(pm.response.json().user.email).to.eql(pm.collectionVariables.get(\"email\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/signup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "signup"
+              ]
+            },
+            "description": "Creates an account and starts a session (sets the `session` cookie).\n\nThe pre-request script generates a unique `email` on every run so the collection can be re-run without hitting 409. Delete the script to sign up with a fixed email.\n\n| Field | Type | Rules |\n|---|---|---|\n| `email` | string | Valid email, trimmed and lowercased |\n| `password` | string | 8 to 72 characters |",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/signup",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "signup"
+                  ]
+                },
+                "description": "Creates an account and starts a session (sets the `session` cookie).\n\nThe pre-request script generates a unique `email` on every run so the collection can be re-run without hitting 409. Delete the script to sign up with a fixed email.\n\n| Field | Type | Rules |\n|---|---|---|\n| `email` | string | Valid email, trimmed and lowercased |\n| `password` | string | 8 to 72 characters |",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"user\": {\n    \"id\": \"6ae46291ef7a9c3d7820e9f6\",\n    \"email\": \"alice@example.com\"\n  }\n}"
+            },
+            {
+              "name": "400 Validation failed",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/signup",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "signup"
+                  ]
+                },
+                "description": "Creates an account and starts a session (sets the `session` cookie).\n\nThe pre-request script generates a unique `email` on every run so the collection can be re-run without hitting 409. Delete the script to sign up with a fixed email.\n\n| Field | Type | Rules |\n|---|---|---|\n| `email` | string | Valid email, trimmed and lowercased |\n| `password` | string | 8 to 72 characters |",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"Validation failed\",\n  \"details\": {\n    \"formErrors\": [],\n    \"fieldErrors\": {\n      \"email\": [\n        \"Invalid email address\"\n      ],\n      \"password\": [\n        \"Too small: expected string to have >=8 characters\"\n      ]\n    }\n  }\n}"
+            },
+            {
+              "name": "409 Email already registered",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/signup",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "signup"
+                  ]
+                },
+                "description": "Creates an account and starts a session (sets the `session` cookie).\n\nThe pre-request script generates a unique `email` on every run so the collection can be re-run without hitting 409. Delete the script to sign up with a fixed email.\n\n| Field | Type | Rules |\n|---|---|---|\n| `email` | string | Valid email, trimmed and lowercased |\n| `password` | string | 8 to 72 characters |",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"Email is already registered\"\n}"
+            },
+            {
+              "name": "429 Too many attempts",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/signup",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "signup"
+                  ]
+                },
+                "description": "Creates an account and starts a session (sets the `session` cookie).\n\nThe pre-request script generates a unique `email` on every run so the collection can be re-run without hitting 409. Delete the script to sign up with a fixed email.\n\n| Field | Type | Rules |\n|---|---|---|\n| `email` | string | Valid email, trimmed and lowercased |\n| `password` | string | 8 to 72 characters |",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Too Many Requests",
+              "code": 429,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": ""
+            }
+          ]
+        },
+        {
+          "name": "Log in",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Verifies credentials and starts a session (sets the `session` cookie).\n\n| Field | Type | Rules |\n|---|---|---|\n| `email` | string | Valid email, case insensitive |\n| `password` | string | Required |",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "description": "Verifies credentials and starts a session (sets the `session` cookie).\n\n| Field | Type | Rules |\n|---|---|---|\n| `email` | string | Valid email, case insensitive |\n| `password` | string | Required |",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"user\": {\n    \"id\": \"6ae46291ef7a9c3d7820e9f6\",\n    \"email\": \"alice@example.com\"\n  }\n}"
+            },
+            {
+              "name": "401 Invalid credentials",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "description": "Verifies credentials and starts a session (sets the `session` cookie).\n\n| Field | Type | Rules |\n|---|---|---|\n| `email` | string | Valid email, case insensitive |\n| `password` | string | Required |",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"Invalid email or password\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Current user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"returns the user\", () => pm.expect(pm.response.json().user).to.have.keys(\"id\", \"email\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Returns the user for the current session. Use it on app load to restore the logged-in state."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "me"
+                  ]
+                },
+                "description": "Returns the user for the current session. Use it on app load to restore the logged-in state."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"user\": {\n    \"id\": \"6ae46291ef7a9c3d7820e9f6\",\n    \"email\": \"alice@example.com\"\n  }\n}"
+            },
+            {
+              "name": "401 Not authenticated",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "me"
+                  ]
+                },
+                "description": "Returns the user for the current session. Use it on app load to restore the logged-in state."
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"Not authenticated\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "description": "All chat routes require a session. Conversations and messages are scoped to the logged-in user.",
+      "item": [
+        {
+          "name": "Send message (new conversation)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"returns the user message and the reply\", () => pm.expect(body.messages.map((m) => m.role)).to.eql([\"user\", \"assistant\"]));",
+                  "pm.collectionVariables.set(\"conversationId\", body.conversationId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/send",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "send"
+              ]
+            },
+            "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation; its title is the first 60 characters of the message.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nThe test script saves `conversationId` for the requests that follow.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/chat/send",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "chat",
+                    "send"
+                  ]
+                },
+                "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation; its title is the first 60 characters of the message.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nThe test script saves `conversationId` for the requests that follow.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"message\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"conversationId\": \"6ae4629359ba7c313eaf5e27\",\n  \"messages\": [\n    {\n      \"id\": \"6ae4629359ba7c313eaf5e28\",\n      \"conversationId\": \"6ae4629359ba7c313eaf5e27\",\n      \"role\": \"user\",\n      \"content\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\",\n      \"createdAt\": \"2026-10-30T09:25:39.257Z\"\n    },\n    {\n      \"id\": \"6ae4629359ba7c313eaf5e29\",\n      \"conversationId\": \"6ae4629359ba7c313eaf5e27\",\n      \"role\": \"assistant\",\n      \"content\": \"I'm sorry your order hasn't arrived yet. Could you share your order email so I can look into it?\",\n      \"createdAt\": \"2026-10-30T09:25:39.257Z\"\n    }\n  ]\n}"
+            },
+            {
+              "name": "400 Validation failed",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/chat/send",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "chat",
+                    "send"
+                  ]
+                },
+                "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation; its title is the first 60 characters of the message.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nThe test script saves `conversationId` for the requests that follow.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"message\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"Validation failed\",\n  \"details\": {\n    \"formErrors\": [],\n    \"fieldErrors\": {\n      \"message\": [\n        \"Too small: expected string to have >=1 characters\"\n      ]\n    }\n  }\n}"
+            },
+            {
+              "name": "404 Conversation not found",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/chat/send",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "chat",
+                    "send"
+                  ]
+                },
+                "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation; its title is the first 60 characters of the message.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nThe test script saves `conversationId` for the requests that follow.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"message\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"Conversation not found\"\n}"
+            },
+            {
+              "name": "401 Not authenticated",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/chat/send",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "chat",
+                    "send"
+                  ]
+                },
+                "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation; its title is the first 60 characters of the message.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nThe test script saves `conversationId` for the requests that follow.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"message\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"Not authenticated\"\n}"
+            },
+            {
+              "name": "502 AI unavailable",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/chat/send",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "chat",
+                    "send"
+                  ]
+                },
+                "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation; its title is the first 60 characters of the message.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nThe test script saves `conversationId` for the requests that follow.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"message\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Gateway",
+              "code": 502,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"The assistant is unavailable right now, please try again\"\n}"
+            },
+            {
+              "name": "503 AI busy",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/chat/send",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "chat",
+                    "send"
+                  ]
+                },
+                "description": "Sends a message to the AI assistant and stores both the user message and the reply.\n\nOmit `conversationId` to start a new conversation; its title is the first 60 characters of the message.\nNothing is stored if the AI call fails, so a failed send never leaves an empty conversation behind.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters after trimming |\n| `conversationId` | string | Optional, id of one of your conversations |\n\nThe test script saves `conversationId` for the requests that follow.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"message\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Service Unavailable",
+              "code": 503,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"The assistant is busy right now, please try again shortly\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Send message (continue conversation)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"stays in the same conversation\", () => pm.expect(pm.response.json().conversationId).to.eql(pm.collectionVariables.get(\"conversationId\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/send",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "send"
+              ]
+            },
+            "description": "Continues an existing conversation. The assistant receives the last 20 messages of the conversation as context.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"It was placed last Monday.\",\n  \"conversationId\": \"{{conversationId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "404 Conversation not found",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/chat/send",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "chat",
+                    "send"
+                  ]
+                },
+                "description": "Continues an existing conversation. The assistant receives the last 20 messages of the conversation as context.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"message\": \"It was placed last Monday.\",\n  \"conversationId\": \"{{conversationId}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"Conversation not found\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List conversations",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"returns conversations\", () => pm.expect(pm.response.json().conversations).to.be.an(\"array\").that.is.not.empty);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/chat/history",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "history"
+              ]
+            },
+            "description": "Returns the user's conversations, most recently active first."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/chat/history",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "chat",
+                    "history"
+                  ]
+                },
+                "description": "Returns the user's conversations, most recently active first."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"conversations\": [\n    {\n      \"id\": \"6ae4629359ba7c313eaf5e27\",\n      \"title\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\",\n      \"createdAt\": \"2026-10-30T09:25:39.252Z\",\n      \"updatedAt\": \"2026-10-30T09:25:41.309Z\"\n    }\n  ]\n}"
+            },
+            {
+              "name": "401 Not authenticated",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/chat/history",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "chat",
+                    "history"
+                  ]
+                },
+                "description": "Returns the user's conversations, most recently active first."
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"Not authenticated\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get conversation messages",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"returns 4 messages\", () => pm.expect(pm.response.json().messages).to.have.lengthOf(4));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/chat/history/{{conversationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "history",
+                "{{conversationId}}"
+              ]
+            },
+            "description": "Returns every message in one conversation, oldest first."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/chat/history/{{conversationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "chat",
+                    "history",
+                    "{{conversationId}}"
+                  ]
+                },
+                "description": "Returns every message in one conversation, oldest first."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"messages\": [\n    {\n      \"id\": \"6ae4629359ba7c313eaf5e28\",\n      \"conversationId\": \"6ae4629359ba7c313eaf5e27\",\n      \"role\": \"user\",\n      \"content\": \"Hi, my order #1234 hasn't arrived yet. Can you help?\",\n      \"createdAt\": \"2026-10-30T09:25:39.257Z\"\n    },\n    {\n      \"id\": \"6ae4629359ba7c313eaf5e29\",\n      \"conversationId\": \"6ae4629359ba7c313eaf5e27\",\n      \"role\": \"assistant\",\n      \"content\": \"I'm sorry your order hasn't arrived yet. Could you share your order email so I can look into it?\",\n      \"createdAt\": \"2026-10-30T09:25:39.257Z\"\n    }\n  ]\n}"
+            },
+            {
+              "name": "400 Invalid id",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/chat/history/{{conversationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "chat",
+                    "history",
+                    "{{conversationId}}"
+                  ]
+                },
+                "description": "Returns every message in one conversation, oldest first."
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"Validation failed\",\n  \"details\": {\n    \"formErrors\": [],\n    \"fieldErrors\": {\n      \"conversationId\": [\n        \"Invalid conversation id\"\n      ]\n    }\n  }\n}"
+            },
+            {
+              "name": "404 Conversation not found",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/chat/history/{{conversationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "chat",
+                    "history",
+                    "{{conversationId}}"
+                  ]
+                },
+                "description": "Returns every message in one conversation, oldest first."
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"Conversation not found\"\n}"
+            },
+            {
+              "name": "401 Not authenticated",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/chat/history/{{conversationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "chat",
+                    "history",
+                    "{{conversationId}}"
+                  ]
+                },
+                "description": "Returns every message in one conversation, oldest first."
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"Not authenticated\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Session",
+      "description": "Ends the session. Kept last so the Collection Runner stays logged in for the requests above.",
+      "item": [
+        {
+          "name": "Log out",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Clears the `session` cookie. Always returns 204, even without a session."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/logout",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "logout"
+                  ]
+                },
+                "description": "Clears the `session` cookie. Always returns 204, even without a session."
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": ""
+            }
+          ]
+        },
+        {
+          "name": "Current user after logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Confirms the session is gone."
+          },
+          "response": [
+            {
+              "name": "401 Not authenticated",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "me"
+                  ]
+                },
+                "description": "Confirms the session is gone."
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"error\": \"Not authenticated\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
