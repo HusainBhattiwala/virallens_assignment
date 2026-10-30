@@ -1,4 +1,4 @@
-import { MessageSquareOff } from "lucide-react"
+import { MessageSquareOff, SquarePen } from "lucide-react"
 import { Link, useNavigate, useParams } from "react-router"
 import { Button } from "@/components/ui/button"
 import {
@@ -9,8 +9,13 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
-import { SidebarTrigger } from "@/components/ui/sidebar"
+import { useSidebar } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { getErrorMessage } from "@/lib/api"
 import { useConversations, useMessages } from "./chat-data"
 import {
@@ -21,6 +26,7 @@ import {
 import { Composer } from "./composer"
 import { EmptyConversation } from "./empty-conversation"
 import { MessageList } from "./message-list"
+import { SidebarToggle } from "./sidebar-toggle"
 
 export function ChatPage() {
   const { conversationId } = useParams<"conversationId">()
@@ -87,13 +93,48 @@ function ConversationView({ conversationId }: ConversationViewProps) {
 
   return (
     <div className="flex h-svh flex-col">
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4 sm:px-5">
-        <SidebarTrigger className="-ml-1" />
-        <h1 className="truncate text-sm font-medium">{title}</h1>
-      </header>
+      <ChatHeader title={title} />
       <div className="min-h-0 flex-1 overflow-y-auto">{renderBody()}</div>
       <Composer isSending={pending?.status === "sending"} onSend={send} />
     </div>
+  )
+}
+
+interface ChatHeaderProps {
+  title: string
+}
+
+function ChatHeader({ title }: ChatHeaderProps) {
+  const { isMobile, state } = useSidebar()
+  const showSidebarControls = isMobile || state === "collapsed"
+
+  return (
+    <header className="flex h-14 shrink-0 items-center gap-1 px-3 sm:px-4">
+      {showSidebarControls ? (
+        <>
+          <SidebarToggle action="open" />
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="New conversation"
+                  render={<Link to="/chat" />}
+                  nativeButton={false}
+                />
+              }
+            >
+              <SquarePen />
+            </TooltipTrigger>
+            <TooltipContent side="bottom">New conversation</TooltipContent>
+          </Tooltip>
+        </>
+      ) : null}
+      <h1 className="truncate px-2 text-sm font-medium text-muted-foreground">
+        {title}
+      </h1>
+    </header>
   )
 }
 

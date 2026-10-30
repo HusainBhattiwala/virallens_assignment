@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/sidebar"
 import { UserMenu } from "@/features/auth/user-menu"
 import { useConversations } from "./chat-data"
+import { SidebarToggle } from "./sidebar-toggle"
 
 const SKELETON_ROWS = [0, 1, 2, 3, 4]
 
@@ -32,7 +33,10 @@ export function ChatSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="gap-3 pt-3">
-        <BrandLogo className="px-2" />
+        <div className="flex items-center justify-between gap-2 pl-2">
+          <BrandLogo />
+          <SidebarToggle action="close" />
+        </div>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
