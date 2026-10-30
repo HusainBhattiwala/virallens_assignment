@@ -2,7 +2,7 @@
 
 A full-stack customer support chat powered by AI. Users create an account, ask about their orders, deliveries and returns, and can pick up any past conversation where they left off.
 
-**[Live demo](https://virallens-assignment-8omx.vercel.app)** · [Demo guide](docs/demo.md)
+**[Live demo](https://virallensassignment.vercel.app/)** · [Demo guide](docs/demo.md)
 
 ## Features
 
