@@ -2,7 +2,7 @@
 
 A full-stack customer support chat powered by AI. Users create an account, ask about their orders, deliveries and returns, and can pick up any past conversation where they left off.
 
-**[Live demo](https://virallens-assignment-8omx.vercel.app)**
+**[Live demo](https://virallens-assignment-8omx.vercel.app)** · [Demo guide](docs/demo.md)
 
 ## Features
 
@@ -55,5 +55,6 @@ To run it with Docker instead, fill in `apps/server/.env` and run `docker compos
 
 - [Server](apps/server/README.md): API reference, environment variables and how replies are generated
 - [Client](apps/client/README.md): routes, state management and project structure
+- [Demo guide](docs/demo.md): demo orders and prompts for testing the assistant
 - [Deployment](docs/deployment.md): Docker Compose and Vercel
 - [Postman collection](apps/server/postman/support-agent.postman_collection.json) for testing the API

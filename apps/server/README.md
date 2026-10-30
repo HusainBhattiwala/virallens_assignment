@@ -122,7 +122,7 @@ Rate limits are 100 requests per 15 minutes per IP, and 20 per 15 minutes for lo
 
 ## How replies are generated
 
-When a message is sent, the server loads the last 20 messages of the conversation and sends them to OpenRouter with a system prompt. If the configured model is unavailable, OpenRouter falls back to its free model router. The user message and the reply are saved together once the reply arrives, so a failed request doesn't leave a partial conversation.
+When a message is sent, the server loads the last 20 messages of the conversation and sends them to OpenRouter with a system prompt. The prompt contains the support rules, the store policies and a demo set of orders from [`support-prompt.ts`](src/llm/support-prompt.ts), with dates relative to the current day. The [demo guide](../../docs/demo.md) lists the orders and conversations to try. If the configured model is unavailable, OpenRouter falls back to its free model router. The user message and the reply are saved together once the reply arrives, so a failed request doesn't leave a partial conversation.
 
 ## Project structure
 
