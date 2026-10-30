@@ -10,8 +10,7 @@ A full-stack customer support chat powered by AI. Users create an account, ask a
 - Conversation history with AI-generated titles, plus rename, delete and search
 - Past conversations load as you scroll
 - Email and password accounts with secure cookie sessions
-- Typing indicator, and retry for messages that fail to send
-- Tokyo Night light and dark themes, on desktop and mobile
+- retry for messages that fail to send
 
 ## Tech stack
 
