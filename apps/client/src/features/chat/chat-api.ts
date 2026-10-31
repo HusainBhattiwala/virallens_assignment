@@ -43,6 +43,12 @@ export interface SendMessageInput {
   conversationId: string | undefined
 }
 
+export interface EditMessageInput {
+  conversationId: string
+  messageId: string
+  message: string
+}
+
 export interface ConversationPageQuery {
   search: string
   cursor: string | null
@@ -76,6 +82,20 @@ export const sendMessage = (
     method: "POST",
     body: input,
   })
+
+export const editMessage = ({
+  conversationId,
+  messageId,
+  message,
+}: EditMessageInput): Promise<ConversationDetail> =>
+  apiRequest(
+    `${conversationPath(conversationId)}/messages/${encodeURIComponent(messageId)}`,
+    conversationDetailSchema,
+    {
+      method: "PATCH",
+      body: { message },
+    }
+  )
 
 export const renameConversation = async (
   conversationId: string,

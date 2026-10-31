@@ -9,18 +9,21 @@ import {
 } from "@/components/ui/input-group"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import { Spinner } from "@/components/ui/spinner"
+import { useSubmitShortcut } from "@/hooks/use-submit-shortcut"
 
 export const MESSAGE_MAX_LENGTH = 4000
 
 interface ComposerProps {
   isSending: boolean
+  isBlocked: boolean
   onSend: (content: string) => void
 }
 
-export function Composer({ isSending, onSend }: ComposerProps) {
+export function Composer({ isSending, isBlocked, onSend }: ComposerProps) {
   const [draft, setDraft] = useState("")
+  const { onCompositionEnd, isSubmitShortcut } = useSubmitShortcut()
   const content = draft.trim()
-  const canSend = content.length > 0 && !isSending
+  const canSend = content.length > 0 && !isSending && !isBlocked
 
   const submit = () => {
     if (!canSend) return
@@ -34,12 +37,7 @@ export function Composer({ isSending, onSend }: ComposerProps) {
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (
-      event.key !== "Enter" ||
-      event.shiftKey ||
-      event.nativeEvent.isComposing
-    )
-      return
+    if (!isSubmitShortcut(event)) return
     event.preventDefault()
     submit()
   }
@@ -56,6 +54,7 @@ export function Composer({ isSending, onSend }: ComposerProps) {
             setDraft(event.target.value)
           }}
           onKeyDown={handleKeyDown}
+          onCompositionEnd={onCompositionEnd}
           placeholder="Ask about an order, a delivery or a refund"
           aria-label="Message"
           maxLength={MESSAGE_MAX_LENGTH}

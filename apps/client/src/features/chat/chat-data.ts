@@ -137,6 +137,20 @@ export const saveConversationDetail = async ({
   )
 }
 
+export const revalidateConversation = async (
+  conversationId: string
+): Promise<void> => {
+  await mutate(conversationKey(conversationId))
+}
+
+export const replaceConversationDetail = async (
+  detail: ConversationDetail
+): Promise<void> => {
+  await mutate(conversationKey(detail.conversation.id), detail, {
+    revalidate: false,
+  })
+}
+
 export const saveConversation = async (
   conversation: Conversation
 ): Promise<void> => {

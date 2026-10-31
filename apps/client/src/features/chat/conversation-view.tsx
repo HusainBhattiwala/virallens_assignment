@@ -1,4 +1,5 @@
 import { MessageSquareOff, SquarePen } from "lucide-react"
+import { useState } from "react"
 import { Link, useNavigate, useParams } from "react-router"
 import { Button } from "@/components/ui/button"
 import {
@@ -20,6 +21,7 @@ import { getErrorMessage } from "@/lib/api"
 import { useConversation } from "./chat-data"
 import {
   NEW_CONVERSATION_KEY,
+  type PendingMessage,
   useChatStore,
   usePendingMessage,
 } from "./chat-store"
@@ -52,6 +54,12 @@ function ConversationView({ conversationId }: ConversationViewProps) {
   } = useConversation(conversationId)
   const pending = usePendingMessage(conversationId)
   const sendMessage = useChatStore((state) => state.sendMessage)
+  const editMessage = useChatStore((state) => state.editMessage)
+  const discardPending = useChatStore((state) => state.discardPending)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const isEditing = detail?.messages.some(({ id }) => id === editingId) ?? false
+  const hasUnresolvedEdit =
+    pending?.status === "failed" && pending.replacesMessageId !== null
 
   const title = conversationId
     ? (detail?.conversation.title ?? "Conversation")
@@ -67,10 +75,31 @@ function ConversationView({ conversationId }: ConversationViewProps) {
     })
   }
 
+  const retry = ({ content, replacesMessageId }: PendingMessage) => {
+    if (conversationId && replacesMessageId) {
+      void editMessage({
+        conversationId,
+        messageId: replacesMessageId,
+        content,
+      })
+      return
+    }
+    send(content)
+  }
+
+  const discard = () => {
+    discardPending(conversationId)
+  }
+
   const renderBody = () => {
     if (!conversationId) {
       return pending ? (
-        <MessageList messages={[]} pending={pending} onRetry={send} />
+        <MessageList
+          messages={[]}
+          pending={pending}
+          onRetry={retry}
+          onDiscard={discard}
+        />
       ) : (
         <EmptyConversation onPick={send} />
       )
@@ -88,7 +117,15 @@ function ConversationView({ conversationId }: ConversationViewProps) {
       <MessageList
         messages={detail?.messages ?? []}
         pending={pending}
-        onRetry={send}
+        onRetry={retry}
+        onDiscard={discard}
+        editing={{
+          messageId: editingId,
+          onChange: setEditingId,
+          onSubmit: (messageId, content) => {
+            void editMessage({ conversationId, messageId, content })
+          },
+        }}
       />
     )
   }
@@ -97,7 +134,11 @@ function ConversationView({ conversationId }: ConversationViewProps) {
     <div className="flex h-svh flex-col">
       <ChatHeader title={title} />
       <div className="min-h-0 flex-1 overflow-y-auto">{renderBody()}</div>
-      <Composer isSending={pending?.status === "sending"} onSend={send} />
+      <Composer
+        isSending={pending?.status === "sending"}
+        isBlocked={isEditing || hasUnresolvedEdit}
+        onSend={send}
+      />
     </div>
   )
 }
