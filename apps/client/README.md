@@ -46,6 +46,7 @@ The app runs at http://localhost:5173.
 - SWR fetches and caches conversations and messages. The sidebar uses `useSWRInfinite` to load the next page of conversations when the end of the list scrolls into view, using the cursor returned by the API.
 - Conversation search is debounced by 300 ms and keeps the previous results on screen while the next ones load.
 - After a new conversation's first reply, the client asks the API for a generated title and updates the sidebar and header.
+- Your messages can be edited in place from the pencil button that appears on hover. Enter sends, Shift + Enter adds a new line and Escape cancels. While the edit is sent, the messages after it are hidden and the reply indicator shows. If it fails, the conversation is reloaded and the edit can be retried or discarded. Retry is hidden when the edited message no longer exists. The composer can't send while an edit is open or a failed edit is unresolved, so a draft is never lost.
 - Sign up, log in, log out and session checks use the [Better Auth](https://www.better-auth.com) client in `src/features/auth/auth-api.ts`. The session lives in httpOnly cookies, so the client never reads or stores tokens, and the server refreshes them.
 - Chat requests go through `src/lib/api.ts`, which sends the session cookie and validates responses with Zod. A `401` from any request logs the user out.
 

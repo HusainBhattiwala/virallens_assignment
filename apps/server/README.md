@@ -95,10 +95,15 @@ All chat routes are protected.
 | PATCH  | `/api/v1/chat/history/:conversationId`       | `{ title }`                    | `200 { conversation }`               |
 | DELETE | `/api/v1/chat/history/:conversationId`       |                                | `204`                                |
 | POST   | `/api/v1/chat/history/:conversationId/title` |                                | `200 { conversation }`               |
+| PATCH  | `/api/v1/chat/history/:conversationId/messages/:messageId` | `{ message }`    | `200 { conversation, messages }`     |
 
 Leave out `conversationId` to start a new conversation. `/api/v1/chat/send` returns the conversation with the saved user message and the assistant's reply. A new conversation is titled with the start of its first message until `POST .../title` replaces it with a short title written by the AI.
 
 Renaming a conversation or generating its title doesn't change `updatedAt`, so it keeps its place in the list. Deleting a conversation also deletes its messages.
+
+Editing a message works like editing a prompt in ChatGPT or Claude: the edited message and everything after it are replaced by the new message and a fresh reply. Only your own messages can be edited. The server gets the reply first, using the messages before the edited one as context, then swaps the messages in a MongoDB transaction. If generating the reply fails, the conversation is left as it was. The response contains the whole updated conversation.
+
+Messages are ordered by a per-conversation `seq`, and each conversation stores its `messageCount`. Sending and editing only write if `messageCount` is still the value read before the reply was generated. If another tab sent or edited a message in the meantime, the request returns `409` instead of saving a reply built from out-of-date messages, and the client reloads the conversation. Deleting a conversation runs in a transaction too, so it can't interleave with an edit.
 
 ### Pagination and search
 
@@ -136,7 +141,8 @@ Chat errors return `{ "error": "message" }`. Validation errors also include `det
 | 400    | Invalid request body or parameter               |
 | 401    | Not logged in, or wrong email or password       |
 | 403    | Banned user signing in, not an admin, or untrusted `Origin` |
-| 404    | Route or conversation not found                 |
+| 404    | Route, conversation or message not found        |
+| 409    | The conversation changed while the reply was being written |
 | 422    | Email already registered                        |
 | 429    | Too many requests                               |
 | 502    | The AI provider failed                          |

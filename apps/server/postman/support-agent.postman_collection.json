@@ -2,7 +2,7 @@
   "info": {
     "name": "AI Customer Support Agent API",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "REST API for the AI customer support chat app: Better Auth sessions plus AI chat with history stored in MongoDB.\n\n## Getting started\n1. Start the server: `bun run --filter @support-agent/server dev` from the repository root (requires a filled-in `.env`).\n2. Check `baseUrl` (default `http://localhost:4000`) and `origin` (must match `CLIENT_ORIGIN`) in the collection variables. For the Admin folder, set `adminEmail` and `adminPassword` to the seeded admin.\n3. Run **Auth → Sign up** (or **Log in**). Postman stores the session cookie automatically, so every request after that is authenticated.\n4. Run **Chat → Send message (new conversation)**. Its test script saves `conversationId` for the follow-up requests.\n5. The Chat folder ends by deleting that conversation, so the collection can be run repeatedly.\n\n## Resources\n| Method | Path | Purpose |\n|---|---|---|\n| POST | `/api/v1/auth/sign-up/email` | Create an account and start a session |\n| POST | `/api/v1/auth/sign-in/email` | Start a session |\n| POST | `/api/v1/auth/sign-out` | End the session |\n| GET | `/api/v1/auth/get-session` | Current session and user |\n| GET | `/api/v1/auth/admin/list-users` | List users (admin) |\n| POST | `/api/v1/auth/admin/ban-user` | Ban a user and revoke their sessions (admin) |\n| POST | `/api/v1/auth/admin/unban-user` | Lift a ban (admin) |\n| POST | `/api/v1/chat/send` | Send a message (optionally to an existing conversation) and get the AI reply |\n| GET | `/api/v1/chat/history` | List conversations, with cursor pagination and title search |\n| GET | `/api/v1/chat/history/:conversationId` | Get a conversation and its messages |\n| PATCH | `/api/v1/chat/history/:conversationId` | Rename a conversation |\n| DELETE | `/api/v1/chat/history/:conversationId` | Delete a conversation and its messages |\n| POST | `/api/v1/chat/history/:conversationId/title` | Generate a title with the AI |\n\nRun the whole collection top to bottom with the Collection Runner for a full end-to-end check.\n\n## Authentication\nAuthentication is handled by [Better Auth](https://www.better-auth.com). Sign up and log in set two `httpOnly` cookies:\n- `better-auth.session_token`: the session, stored in MongoDB. It lasts 7 days and is extended once a day while in use.\n- `better-auth.session_data`: an encrypted JWE copy of the session that lasts 5 minutes, so most requests skip the database. The server reissues it automatically.\n\nRoutes under `/api/v1/chat` require a session. Browser clients must send requests with `credentials: \"include\"`.\n\nBetter Auth rejects `POST` requests that carry cookies without a trusted `Origin` header. The collection-level pre-request script adds `Origin: {{origin}}` to every request.\n\n## Error format\nChat errors have this shape:\n```json\n{ \"error\": \"Human readable message\" }\n```\nValidation failures (400) also include `details` with `formErrors` and per-field `fieldErrors`. Auth errors from Better Auth have the shape `{ \"message\": \"...\", \"code\": \"...\" }`.\n\n| Status | Meaning |\n|---|---|\n| 400 | Request body or URL parameter failed validation, or malformed JSON |\n| 401 | Missing, invalid or expired session, or wrong credentials |\n| 403 | Banned user, not an admin, or untrusted `Origin` |\n| 404 | Route or conversation not found (other users' conversations also return 404) |\n| 422 | Email already registered |\n| 429 | Rate limit exceeded |\n| 502 | The AI provider failed or returned an empty reply |\n| 503 | The AI provider is rate limiting (common on free models) |\n\n## Rate limits\n- All routes: 100 requests per 15 minutes per IP.\n- Sign in and sign up: 3 requests per 10 seconds per IP and path, stored in MongoDB. Better Auth only applies this limit in production.\n\nResponses include `RateLimit` and `RateLimit-Policy` headers, and every response carries an `X-Request-Id` header that matches the server log line for that request."
+    "description": "REST API for the AI customer support chat app: Better Auth sessions plus AI chat with history stored in MongoDB.\n\n## Getting started\n1. Start the server: `bun run --filter @support-agent/server dev` from the repository root (requires a filled-in `.env`).\n2. Check `baseUrl` (default `http://localhost:4000`) and `origin` (must match `CLIENT_ORIGIN`) in the collection variables. For the Admin folder, set `adminEmail` and `adminPassword` to the seeded admin.\n3. Run **Auth → Sign up** (or **Log in**). Postman stores the session cookie automatically, so every request after that is authenticated.\n4. Run **Chat → Send message (new conversation)**. Its test script saves `conversationId` for the follow-up requests.\n5. The Chat folder ends by deleting that conversation, so the collection can be run repeatedly.\n\n## Resources\n| Method | Path | Purpose |\n|---|---|---|\n| POST | `/api/v1/auth/sign-up/email` | Create an account and start a session |\n| POST | `/api/v1/auth/sign-in/email` | Start a session |\n| POST | `/api/v1/auth/sign-out` | End the session |\n| GET | `/api/v1/auth/get-session` | Current session and user |\n| GET | `/api/v1/auth/admin/list-users` | List users (admin) |\n| POST | `/api/v1/auth/admin/ban-user` | Ban a user and revoke their sessions (admin) |\n| POST | `/api/v1/auth/admin/unban-user` | Lift a ban (admin) |\n| POST | `/api/v1/chat/send` | Send a message (optionally to an existing conversation) and get the AI reply |\n| GET | `/api/v1/chat/history` | List conversations, with cursor pagination and title search |\n| GET | `/api/v1/chat/history/:conversationId` | Get a conversation and its messages |\n| PATCH | `/api/v1/chat/history/:conversationId` | Rename a conversation |\n| DELETE | `/api/v1/chat/history/:conversationId` | Delete a conversation and its messages |\n| POST | `/api/v1/chat/history/:conversationId/title` | Generate a title with the AI |\n| PATCH | `/api/v1/chat/history/:conversationId/messages/:messageId` | Edit a message and regenerate everything after it |\n\nRun the whole collection top to bottom with the Collection Runner for a full end-to-end check.\n\n## Authentication\nAuthentication is handled by [Better Auth](https://www.better-auth.com). Sign up and log in set two `httpOnly` cookies:\n- `better-auth.session_token`: the session, stored in MongoDB. It lasts 7 days and is extended once a day while in use.\n- `better-auth.session_data`: an encrypted JWE copy of the session that lasts 5 minutes, so most requests skip the database. The server reissues it automatically.\n\nRoutes under `/api/v1/chat` require a session. Browser clients must send requests with `credentials: \"include\"`.\n\nBetter Auth rejects `POST` requests that carry cookies without a trusted `Origin` header. The collection-level pre-request script adds `Origin: {{origin}}` to every request.\n\n## Error format\nChat errors have this shape:\n```json\n{ \"error\": \"Human readable message\" }\n```\nValidation failures (400) also include `details` with `formErrors` and per-field `fieldErrors`. Auth errors from Better Auth have the shape `{ \"message\": \"...\", \"code\": \"...\" }`.\n\n| Status | Meaning |\n|---|---|\n| 400 | Request body or URL parameter failed validation, or malformed JSON |\n| 401 | Missing, invalid or expired session, or wrong credentials |\n| 403 | Banned user, not an admin, or untrusted `Origin` |\n| 404 | Route, conversation or message not found (other users' conversations also return 404) |\n| 409 | The conversation changed while the reply was being written |\n| 422 | Email already registered |\n| 429 | Rate limit exceeded |\n| 502 | The AI provider failed or returned an empty reply |\n| 503 | The AI provider is rate limiting (common on free models) |\n\n## Rate limits\n- All routes: 100 requests per 15 minutes per IP.\n- Sign in and sign up: 3 requests per 10 seconds per IP and path, stored in MongoDB. Better Auth only applies this limit in production.\n\nResponses include `RateLimit` and `RateLimit-Policy` headers, and every response carries an `X-Request-Id` header that matches the server log line for that request."
   },
   "variable": [
     {
@@ -39,6 +39,10 @@
     },
     {
       "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "messageId",
       "value": ""
     }
   ],
@@ -473,7 +477,8 @@
                   "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
                   "const body = pm.response.json();",
                   "pm.test(\"returns the user message and the reply\", () => pm.expect(body.messages.map((m) => m.role)).to.eql([\"user\", \"assistant\"]));",
-                  "pm.collectionVariables.set(\"conversationId\", body.conversation.id);"
+                  "pm.collectionVariables.set(\"conversationId\", body.conversation.id);",
+                  "pm.collectionVariables.set(\"messageId\", body.messages[0].id);"
                 ]
               }
             }
@@ -969,6 +974,107 @@
           ]
         },
         {
+          "name": "Edit message",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"replaces the edited message and everything after it\", () => pm.expect(body.messages.map((m) => m.role)).to.eql([\"user\", \"assistant\"]));",
+                  "pm.test(\"keeps the edited content\", () => pm.expect(body.messages[0].content).to.eql(\"Where is my order HB-1045?\"));",
+                  "pm.collectionVariables.set(\"messageId\", body.messages[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chat/history/{{conversationId}}/messages/{{messageId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "chat",
+                "history",
+                "{{conversationId}}",
+                "messages",
+                "{{messageId}}"
+              ]
+            },
+            "description": "Replaces a user message and every message after it with the edited message and a new AI reply, like editing a prompt in ChatGPT. The reply is generated before anything is changed, so if generating it fails the conversation is left as it was. Returns `409` if the conversation changed while the reply was being written. Returns the whole updated conversation, and the test script saves the new message id as `messageId`.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters, trimmed |",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Where is my order HB-1045?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/chat/history/{{conversationId}}/messages/{{messageId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "chat",
+                    "history",
+                    "{{conversationId}}",
+                    "messages",
+                    "{{messageId}}"
+                  ]
+                },
+                "description": "Replaces a user message and every message after it with the edited message and a new AI reply, like editing a prompt in ChatGPT. The reply is generated before anything is changed, so if generating it fails the conversation is left as it was. Returns `409` if the conversation changed while the reply was being written. Returns the whole updated conversation, and the test script saves the new message id as `messageId`.\n\n| Field | Type | Rules |\n|---|---|---|\n| `message` | string | 1 to 4000 characters, trimmed |",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"message\": \"Where is my order HB-1045?\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"conversation\": {\n    \"id\": \"6ae58b4d06a643535729baad\",\n    \"title\": \"Where is my order HB-1043?\",\n    \"createdAt\": \"2026-10-31T06:25:17.000Z\",\n    \"updatedAt\": \"2026-10-31T06:31:02.000Z\"\n  },\n  \"messages\": [\n    {\n      \"id\": \"6ae58d1606a643535729bab4\",\n      \"conversationId\": \"6ae58b4d06a643535729baad\",\n      \"role\": \"user\",\n      \"content\": \"Where is my order HB-1045?\",\n      \"createdAt\": \"2026-10-31T06:31:02.000Z\"\n    },\n    {\n      \"id\": \"6ae58d1606a643535729bab5\",\n      \"conversationId\": \"6ae58b4d06a643535729baad\",\n      \"role\": \"assistant\",\n      \"content\": \"Your order HB-1045, the linen bedsheet set, shipped with FedEx and is delayed by weather at the Memphis hub.\",\n      \"createdAt\": \"2026-10-31T06:31:02.000Z\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
           "name": "List conversations",
           "event": [
             {
@@ -1180,7 +1286,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"returns 4 messages\", () => pm.expect(pm.response.json().messages).to.have.lengthOf(4));"
+                  "pm.test(\"returns the 2 messages left after the edit\", () => pm.expect(pm.response.json().messages).to.have.lengthOf(2));"
                 ]
               }
             }
