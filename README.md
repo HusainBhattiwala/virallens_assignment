@@ -9,7 +9,7 @@ A full-stack customer support chat powered by AI. Users create an account, ask a
 - Chat with an AI support assistant that keeps the context of the conversation
 - Conversation history with AI-generated titles, plus rename, delete and search
 - Past conversations load as you scroll
-- Email and password accounts with secure cookie sessions
+- Email and password accounts with [Better Auth](https://www.better-auth.com): httpOnly cookie sessions, encrypted short-lived session cache, rate limiting and admin user management with bans
 - retry for messages that fail to send
 
 ## Tech stack
@@ -17,7 +17,7 @@ A full-stack customer support chat powered by AI. Users create an account, ask a
 | Layer    | Tools                                                                            |
 | -------- | -------------------------------------------------------------------------------- |
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS, shadcn/ui, Zustand, SWR, React Router |
-| Backend  | Node.js, Express 5, TypeScript, Mongoose, Zod, Pino                              |
+| Backend  | Node.js, Express 5, TypeScript, Better Auth, Mongoose, Zod, Pino                 |
 | Database | MongoDB Atlas                                                                    |
 | AI       | OpenRouter                                                                       |
 | Tooling  | Bun workspaces, ESLint, Docker, Vercel                                           |
@@ -34,9 +34,11 @@ cp apps/server/.env.example apps/server/.env
 cp apps/client/.env.example apps/client/.env
 ```
 
-In `apps/server/.env`, set `MONGO_URI`, `JWT_SECRET` and `OPENROUTER_API_KEY`. You can generate a secret with `openssl rand -hex 32`. Then start the app:
+In `apps/server/.env`, set `MONGO_URI`, `BETTER_AUTH_SECRET`, `OPENROUTER_API_KEY`, `ADMIN_EMAIL` and `ADMIN_PASSWORD`. You can generate a secret with `openssl rand -hex 32`. Then create the admin account and start the app:
 
 ```bash
+bun run --filter @support-agent/server build
+bun run --filter @support-agent/server seed:admin
 bun run dev
 ```
 

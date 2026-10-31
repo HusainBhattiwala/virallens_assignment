@@ -46,7 +46,8 @@ The app runs at http://localhost:5173.
 - SWR fetches and caches conversations and messages. The sidebar uses `useSWRInfinite` to load the next page of conversations when the end of the list scrolls into view, using the cursor returned by the API.
 - Conversation search is debounced by 300 ms and keeps the previous results on screen while the next ones load.
 - After a new conversation's first reply, the client asks the API for a generated title and updates the sidebar and header.
-- All requests go through `src/lib/api.ts`, which sends the session cookie and validates responses with Zod. A `401` from any request logs the user out.
+- Sign up, log in, log out and session checks use the [Better Auth](https://www.better-auth.com) client in `src/features/auth/auth-api.ts`. The session lives in httpOnly cookies, so the client never reads or stores tokens, and the server refreshes them.
+- Chat requests go through `src/lib/api.ts`, which sends the session cookie and validates responses with Zod. A `401` from any request logs the user out.
 
 ## Project structure
 

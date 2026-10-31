@@ -2,7 +2,7 @@
   "info": {
     "name": "AI Customer Support Agent API",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "REST API for the AI customer support chat app: JWT auth plus AI chat with history stored in MongoDB.\n\n## Getting started\n1. Start the server: `bun run --filter @support-agent/server dev` from the repository root (requires a filled-in `.env`).\n2. Check `baseUrl` in the collection variables (default `http://localhost:4000`).\n3. Run **Auth → Sign up** (or **Log in**). Postman stores the session cookie automatically, so every request after that is authenticated.\n4. Run **Chat → Send message (new conversation)**. Its test script saves `conversationId` for the follow-up requests.\n5. The Chat folder ends by deleting that conversation, so the collection can be run repeatedly.\n\n## Resources\n| Method | Path | Purpose |\n|---|---|---|\n| POST | `/api/v1/auth/signup` | Create an account and start a session |\n| POST | `/api/v1/auth/login` | Start a session |\n| POST | `/api/v1/auth/logout` | End the session |\n| GET | `/api/v1/auth/me` | Current user |\n| POST | `/api/v1/chat/send` | Send a message (optionally to an existing conversation) and get the AI reply |\n| GET | `/api/v1/chat/history` | List conversations, with cursor pagination and title search |\n| GET | `/api/v1/chat/history/:conversationId` | Get a conversation and its messages |\n| PATCH | `/api/v1/chat/history/:conversationId` | Rename a conversation |\n| DELETE | `/api/v1/chat/history/:conversationId` | Delete a conversation and its messages |\n| POST | `/api/v1/chat/history/:conversationId/title` | Generate a title with the AI |\n\nRun the whole collection top to bottom with the Collection Runner for a full end-to-end check.\n\n## Authentication\nLogin and signup set an `httpOnly` cookie named `session` containing a JWT valid for 7 days. Routes under `/api/v1/auth/me` and `/api/v1/chat` require it.\nBrowser clients must send requests with `credentials: \"include\"` (fetch) or `withCredentials: true` (axios).\n\n## Error format\nEvery error response has the same shape:\n```json\n{ \"error\": \"Human readable message\" }\n```\nValidation failures (400) also include `details` with `formErrors` and per-field `fieldErrors`.\n\n| Status | Meaning |\n|---|---|\n| 400 | Request body or URL parameter failed validation, or malformed JSON |\n| 401 | Missing, invalid or expired session, or wrong credentials |\n| 404 | Route or conversation not found (other users' conversations also return 404) |\n| 409 | Email already registered |\n| 429 | Rate limit exceeded |\n| 502 | The AI provider failed or returned an empty reply |\n| 503 | The AI provider is rate limiting (common on free models) |\n\n## Rate limits\n- All routes: 100 requests per 15 minutes per IP.\n- `POST /auth/signup` and `POST /auth/login`: 20 requests per 15 minutes per IP (shared).\n\nResponses include `RateLimit` and `RateLimit-Policy` headers, and every response carries an `X-Request-Id` header that matches the server log line for that request."
+    "description": "REST API for the AI customer support chat app: Better Auth sessions plus AI chat with history stored in MongoDB.\n\n## Getting started\n1. Start the server: `bun run --filter @support-agent/server dev` from the repository root (requires a filled-in `.env`).\n2. Check `baseUrl` (default `http://localhost:4000`) and `origin` (must match `CLIENT_ORIGIN`) in the collection variables. For the Admin folder, set `adminEmail` and `adminPassword` to the seeded admin.\n3. Run **Auth → Sign up** (or **Log in**). Postman stores the session cookie automatically, so every request after that is authenticated.\n4. Run **Chat → Send message (new conversation)**. Its test script saves `conversationId` for the follow-up requests.\n5. The Chat folder ends by deleting that conversation, so the collection can be run repeatedly.\n\n## Resources\n| Method | Path | Purpose |\n|---|---|---|\n| POST | `/api/v1/auth/sign-up/email` | Create an account and start a session |\n| POST | `/api/v1/auth/sign-in/email` | Start a session |\n| POST | `/api/v1/auth/sign-out` | End the session |\n| GET | `/api/v1/auth/get-session` | Current session and user |\n| GET | `/api/v1/auth/admin/list-users` | List users (admin) |\n| POST | `/api/v1/auth/admin/ban-user` | Ban a user and revoke their sessions (admin) |\n| POST | `/api/v1/auth/admin/unban-user` | Lift a ban (admin) |\n| POST | `/api/v1/chat/send` | Send a message (optionally to an existing conversation) and get the AI reply |\n| GET | `/api/v1/chat/history` | List conversations, with cursor pagination and title search |\n| GET | `/api/v1/chat/history/:conversationId` | Get a conversation and its messages |\n| PATCH | `/api/v1/chat/history/:conversationId` | Rename a conversation |\n| DELETE | `/api/v1/chat/history/:conversationId` | Delete a conversation and its messages |\n| POST | `/api/v1/chat/history/:conversationId/title` | Generate a title with the AI |\n\nRun the whole collection top to bottom with the Collection Runner for a full end-to-end check.\n\n## Authentication\nAuthentication is handled by [Better Auth](https://www.better-auth.com). Sign up and log in set two `httpOnly` cookies:\n- `better-auth.session_token`: the session, stored in MongoDB. It lasts 7 days and is extended once a day while in use.\n- `better-auth.session_data`: an encrypted JWE copy of the session that lasts 5 minutes, so most requests skip the database. The server reissues it automatically.\n\nRoutes under `/api/v1/chat` require a session. Browser clients must send requests with `credentials: \"include\"`.\n\nBetter Auth rejects `POST` requests that carry cookies without a trusted `Origin` header. The collection-level pre-request script adds `Origin: {{origin}}` to every request.\n\n## Error format\nChat errors have this shape:\n```json\n{ \"error\": \"Human readable message\" }\n```\nValidation failures (400) also include `details` with `formErrors` and per-field `fieldErrors`. Auth errors from Better Auth have the shape `{ \"message\": \"...\", \"code\": \"...\" }`.\n\n| Status | Meaning |\n|---|---|\n| 400 | Request body or URL parameter failed validation, or malformed JSON |\n| 401 | Missing, invalid or expired session, or wrong credentials |\n| 403 | Banned user, not an admin, or untrusted `Origin` |\n| 404 | Route or conversation not found (other users' conversations also return 404) |\n| 422 | Email already registered |\n| 429 | Rate limit exceeded |\n| 502 | The AI provider failed or returned an empty reply |\n| 503 | The AI provider is rate limiting (common on free models) |\n\n## Rate limits\n- All routes: 100 requests per 15 minutes per IP.\n- Sign in and sign up: 3 requests per 10 seconds per IP and path, stored in MongoDB. Better Auth only applies this limit in production.\n\nResponses include `RateLimit` and `RateLimit-Policy` headers, and every response carries an `X-Request-Id` header that matches the server log line for that request."
   },
   "variable": [
     {
@@ -23,6 +23,22 @@
     },
     {
       "key": "nextCursor",
+      "value": ""
+    },
+    {
+      "key": "origin",
+      "value": "http://localhost:5173"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@example.com"
+    },
+    {
+      "key": "adminPassword",
+      "value": ""
+    },
+    {
+      "key": "userId",
       "value": ""
     }
   ],
@@ -88,7 +104,7 @@
     },
     {
       "name": "Auth",
-      "description": "Account creation and session management.",
+      "description": "Account creation and sessions, served by Better Auth under `/api/v1/auth`.",
       "item": [
         {
           "name": "Sign up",
@@ -107,7 +123,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
                   "pm.test(\"returns the user\", () => pm.expect(pm.response.json().user.email).to.eql(pm.collectionVariables.get(\"email\")));"
                 ]
               }
@@ -122,7 +138,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/auth/signup",
+              "raw": "{{baseUrl}}/api/v1/auth/sign-up/email",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -130,13 +146,14 @@
                 "api",
                 "v1",
                 "auth",
-                "signup"
+                "sign-up",
+                "email"
               ]
             },
-            "description": "Creates an account and starts a session (sets the `session` cookie).\n\nThe pre-request script generates a unique `email` on every run so the collection can be re-run without hitting 409. Delete the script to sign up with a fixed email.\n\n| Field | Type | Rules |\n|---|---|---|\n| `email` | string | Valid email, trimmed and lowercased |\n| `password` | string | 8 to 72 characters |",
+            "description": "Creates an account and starts a session (sets the `session_token` and `session_data` cookies).\n\nThe pre-request script generates a unique `email` on every run so the collection can be re-run.\n\n| Field | Type | Rules |\n|---|---|---|\n| `email` | string | Valid email |\n| `password` | string | 8 to 128 characters |\n| `name` | string | Display name |",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"name\": \"Alice\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -146,7 +163,7 @@
           },
           "response": [
             {
-              "name": "201 Created",
+              "name": "200 OK",
               "originalRequest": {
                 "method": "POST",
                 "header": [
@@ -156,7 +173,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/v1/auth/signup",
+                  "raw": "{{baseUrl}}/api/v1/auth/sign-up/email",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -164,13 +181,14 @@
                     "api",
                     "v1",
                     "auth",
-                    "signup"
+                    "sign-up",
+                    "email"
                   ]
                 },
-                "description": "Creates an account and starts a session (sets the `session` cookie).\n\nThe pre-request script generates a unique `email` on every run so the collection can be re-run without hitting 409. Delete the script to sign up with a fixed email.\n\n| Field | Type | Rules |\n|---|---|---|\n| `email` | string | Valid email, trimmed and lowercased |\n| `password` | string | 8 to 72 characters |",
+                "description": "Creates an account and starts a session (sets the `session_token` and `session_data` cookies).\n\nThe pre-request script generates a unique `email` on every run so the collection can be re-run.\n\n| Field | Type | Rules |\n|---|---|---|\n| `email` | string | Valid email |\n| `password` | string | 8 to 128 characters |\n| `name` | string | Display name |",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"name\": \"Alice\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -178,19 +196,19 @@
                   }
                 }
               },
-              "status": "Created",
-              "code": 201,
+              "status": "OK",
+              "code": 200,
               "_postman_previewlanguage": "json",
               "header": [
                 {
                   "key": "Content-Type",
-                  "value": "application/json; charset=utf-8"
+                  "value": "application/json"
                 }
               ],
-              "body": "{\n  \"user\": {\n    \"id\": \"6ae46291ef7a9c3d7820e9f6\",\n    \"email\": \"alice@example.com\"\n  }\n}"
+              "body": "{\n  \"token\": \"wWDFWDuEW6IhGvD6Rqnu8AhNMQm1S94n\",\n  \"user\": {\n    \"id\": \"6ae5767fadba171e957b79d3\",\n    \"name\": \"alice\",\n    \"email\": \"alice@example.com\",\n    \"emailVerified\": false,\n    \"image\": null,\n    \"role\": \"user\",\n    \"banned\": false,\n    \"banReason\": null,\n    \"banExpires\": null,\n    \"createdAt\": \"2026-10-31T05:02:55.594Z\",\n    \"updatedAt\": \"2026-10-31T05:02:55.594Z\"\n  }\n}"
             },
             {
-              "name": "400 Validation failed",
+              "name": "422 Email taken",
               "originalRequest": {
                 "method": "POST",
                 "header": [
@@ -200,7 +218,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/v1/auth/signup",
+                  "raw": "{{baseUrl}}/api/v1/auth/sign-up/email",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -208,13 +226,14 @@
                     "api",
                     "v1",
                     "auth",
-                    "signup"
+                    "sign-up",
+                    "email"
                   ]
                 },
-                "description": "Creates an account and starts a session (sets the `session` cookie).\n\nThe pre-request script generates a unique `email` on every run so the collection can be re-run without hitting 409. Delete the script to sign up with a fixed email.\n\n| Field | Type | Rules |\n|---|---|---|\n| `email` | string | Valid email, trimmed and lowercased |\n| `password` | string | 8 to 72 characters |",
+                "description": "Creates an account and starts a session (sets the `session_token` and `session_data` cookies).\n\nThe pre-request script generates a unique `email` on every run so the collection can be re-run.\n\n| Field | Type | Rules |\n|---|---|---|\n| `email` | string | Valid email |\n| `password` | string | 8 to 128 characters |\n| `name` | string | Display name |",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"name\": \"Alice\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -222,104 +241,16 @@
                   }
                 }
               },
-              "status": "Bad Request",
-              "code": 400,
+              "status": "Unprocessable Entity",
+              "code": 422,
               "_postman_previewlanguage": "json",
               "header": [
                 {
                   "key": "Content-Type",
-                  "value": "application/json; charset=utf-8"
+                  "value": "application/json"
                 }
               ],
-              "body": "{\n  \"error\": \"Validation failed\",\n  \"details\": {\n    \"formErrors\": [],\n    \"fieldErrors\": {\n      \"email\": [\n        \"Invalid email address\"\n      ],\n      \"password\": [\n        \"Too small: expected string to have >=8 characters\"\n      ]\n    }\n  }\n}"
-            },
-            {
-              "name": "409 Email already registered",
-              "originalRequest": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/v1/auth/signup",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "api",
-                    "v1",
-                    "auth",
-                    "signup"
-                  ]
-                },
-                "description": "Creates an account and starts a session (sets the `session` cookie).\n\nThe pre-request script generates a unique `email` on every run so the collection can be re-run without hitting 409. Delete the script to sign up with a fixed email.\n\n| Field | Type | Rules |\n|---|---|---|\n| `email` | string | Valid email, trimmed and lowercased |\n| `password` | string | 8 to 72 characters |",
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                }
-              },
-              "status": "Conflict",
-              "code": 409,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json; charset=utf-8"
-                }
-              ],
-              "body": "{\n  \"error\": \"Email is already registered\"\n}"
-            },
-            {
-              "name": "429 Too many attempts",
-              "originalRequest": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/v1/auth/signup",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "api",
-                    "v1",
-                    "auth",
-                    "signup"
-                  ]
-                },
-                "description": "Creates an account and starts a session (sets the `session` cookie).\n\nThe pre-request script generates a unique `email` on every run so the collection can be re-run without hitting 409. Delete the script to sign up with a fixed email.\n\n| Field | Type | Rules |\n|---|---|---|\n| `email` | string | Valid email, trimmed and lowercased |\n| `password` | string | 8 to 72 characters |",
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                }
-              },
-              "status": "Too Many Requests",
-              "code": 429,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json; charset=utf-8"
-                }
-              ],
-              "body": ""
+              "body": "{\n  \"message\": \"User already exists. Use another email.\",\n  \"code\": \"USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL\"\n}"
             }
           ]
         },
@@ -345,7 +276,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "raw": "{{baseUrl}}/api/v1/auth/sign-in/email",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -353,10 +284,11 @@
                 "api",
                 "v1",
                 "auth",
-                "login"
+                "sign-in",
+                "email"
               ]
             },
-            "description": "Verifies credentials and starts a session (sets the `session` cookie).\n\n| Field | Type | Rules |\n|---|---|---|\n| `email` | string | Valid email, case insensitive |\n| `password` | string | Required |",
+            "description": "Starts a session for an existing account. Banned users get `403 BANNED_USER`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
@@ -379,7 +311,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/v1/auth/login",
+                  "raw": "{{baseUrl}}/api/v1/auth/sign-in/email",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -387,10 +319,11 @@
                     "api",
                     "v1",
                     "auth",
-                    "login"
+                    "sign-in",
+                    "email"
                   ]
                 },
-                "description": "Verifies credentials and starts a session (sets the `session` cookie).\n\n| Field | Type | Rules |\n|---|---|---|\n| `email` | string | Valid email, case insensitive |\n| `password` | string | Required |",
+                "description": "Starts a session for an existing account. Banned users get `403 BANNED_USER`.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
@@ -407,13 +340,13 @@
               "header": [
                 {
                   "key": "Content-Type",
-                  "value": "application/json; charset=utf-8"
+                  "value": "application/json"
                 }
               ],
-              "body": "{\n  \"user\": {\n    \"id\": \"6ae46291ef7a9c3d7820e9f6\",\n    \"email\": \"alice@example.com\"\n  }\n}"
+              "body": "{\n  \"redirect\": false,\n  \"token\": \"wWDFWDuEW6IhGvD6Rqnu8AhNMQm1S94n\",\n  \"user\": {\n    \"id\": \"6ae5767fadba171e957b79d3\",\n    \"name\": \"alice\",\n    \"email\": \"alice@example.com\",\n    \"emailVerified\": false,\n    \"image\": null,\n    \"role\": \"user\",\n    \"banned\": false,\n    \"banReason\": null,\n    \"banExpires\": null,\n    \"createdAt\": \"2026-10-31T05:02:55.594Z\",\n    \"updatedAt\": \"2026-10-31T05:02:55.594Z\"\n  }\n}"
             },
             {
-              "name": "401 Invalid credentials",
+              "name": "401 Wrong credentials",
               "originalRequest": {
                 "method": "POST",
                 "header": [
@@ -423,7 +356,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{baseUrl}}/api/v1/auth/login",
+                  "raw": "{{baseUrl}}/api/v1/auth/sign-in/email",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -431,10 +364,11 @@
                     "api",
                     "v1",
                     "auth",
-                    "login"
+                    "sign-in",
+                    "email"
                   ]
                 },
-                "description": "Verifies credentials and starts a session (sets the `session` cookie).\n\n| Field | Type | Rules |\n|---|---|---|\n| `email` | string | Valid email, case insensitive |\n| `password` | string | Required |",
+                "description": "Starts a session for an existing account. Banned users get `403 BANNED_USER`.",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
@@ -451,15 +385,15 @@
               "header": [
                 {
                   "key": "Content-Type",
-                  "value": "application/json; charset=utf-8"
+                  "value": "application/json"
                 }
               ],
-              "body": "{\n  \"error\": \"Invalid email or password\"\n}"
+              "body": "{\n  \"message\": \"Invalid email or password\",\n  \"code\": \"INVALID_EMAIL_OR_PASSWORD\"\n}"
             }
           ]
         },
         {
-          "name": "Current user",
+          "name": "Current session",
           "event": [
             {
               "listen": "test",
@@ -467,7 +401,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"returns the user\", () => pm.expect(pm.response.json().user).to.have.keys(\"id\", \"email\"));"
+                  "pm.test(\"returns the user\", () => pm.expect(pm.response.json().user.email).to.eql(pm.collectionVariables.get(\"email\")));"
                 ]
               }
             }
@@ -476,7 +410,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/auth/me",
+              "raw": "{{baseUrl}}/api/v1/auth/get-session",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -484,10 +418,10 @@
                 "api",
                 "v1",
                 "auth",
-                "me"
+                "get-session"
               ]
             },
-            "description": "Returns the user for the current session. Use it on app load to restore the logged-in state."
+            "description": "Returns the session and user, or `null` when signed out."
           },
           "response": [
             {
@@ -496,7 +430,7 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/api/v1/auth/me",
+                  "raw": "{{baseUrl}}/api/v1/auth/get-session",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -504,10 +438,10 @@
                     "api",
                     "v1",
                     "auth",
-                    "me"
+                    "get-session"
                   ]
                 },
-                "description": "Returns the user for the current session. Use it on app load to restore the logged-in state."
+                "description": "Returns the session and user, or `null` when signed out."
               },
               "status": "OK",
               "code": 200,
@@ -515,40 +449,10 @@
               "header": [
                 {
                   "key": "Content-Type",
-                  "value": "application/json; charset=utf-8"
+                  "value": "application/json"
                 }
               ],
-              "body": "{\n  \"user\": {\n    \"id\": \"6ae46291ef7a9c3d7820e9f6\",\n    \"email\": \"alice@example.com\"\n  }\n}"
-            },
-            {
-              "name": "401 Not authenticated",
-              "originalRequest": {
-                "method": "GET",
-                "header": [],
-                "url": {
-                  "raw": "{{baseUrl}}/api/v1/auth/me",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "api",
-                    "v1",
-                    "auth",
-                    "me"
-                  ]
-                },
-                "description": "Returns the user for the current session. Use it on app load to restore the logged-in state."
-              },
-              "status": "Unauthorized",
-              "code": 401,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json; charset=utf-8"
-                }
-              ],
-              "body": "{\n  \"error\": \"Not authenticated\"\n}"
+              "body": "{\n  \"session\": {\n    \"id\": \"6ae5767fadba171e957b79d5\",\n    \"userId\": \"6ae5767fadba171e957b79d3\",\n    \"token\": \"wWDFWDuEW6IhGvD6Rqnu8AhNMQm1S94n\",\n    \"expiresAt\": \"2026-11-07T05:02:55.667Z\",\n    \"ipAddress\": \"203.0.113.7\",\n    \"userAgent\": \"PostmanRuntime/7.43.0\",\n    \"createdAt\": \"2026-10-31T05:02:55.667Z\",\n    \"updatedAt\": \"2026-10-31T05:02:55.667Z\"\n  },\n  \"user\": {\n    \"id\": \"6ae5767fadba171e957b79d3\",\n    \"name\": \"alice\",\n    \"email\": \"alice@example.com\",\n    \"emailVerified\": false,\n    \"image\": null,\n    \"role\": \"user\",\n    \"banned\": false,\n    \"banReason\": null,\n    \"banExpires\": null,\n    \"createdAt\": \"2026-10-31T05:02:55.594Z\",\n    \"updatedAt\": \"2026-10-31T05:02:55.594Z\"\n  }\n}"
             }
           ]
         }
@@ -1769,6 +1673,384 @@
       ]
     },
     {
+      "name": "Admin",
+      "description": "User management from the Better Auth admin plugin. Every request needs an admin session, so this folder logs in as the seeded admin (`adminEmail` and `adminPassword`) first.",
+      "item": [
+        {
+          "name": "Log in as admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"is an admin\", () => pm.expect(pm.response.json().user.role).to.eql(\"admin\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/sign-in/email",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "sign-in",
+                "email"
+              ]
+            },
+            "description": "Replaces the current session with the admin's session.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "const { users } = pm.response.json();",
+                  "pm.test(\"finds the user\", () => pm.expect(users).to.have.lengthOf(1));",
+                  "pm.collectionVariables.set(\"userId\", users[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/admin/list-users?filterField=email&filterValue={{email}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "admin",
+                "list-users"
+              ],
+              "query": [
+                {
+                  "key": "filterField",
+                  "value": "email"
+                },
+                {
+                  "key": "filterValue",
+                  "value": "{{email}}"
+                }
+              ]
+            },
+            "description": "Lists users with search, filters and offset pagination. Here it finds the user created by **Auth → Sign up** and saves its id as `userId`."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/auth/admin/list-users?filterField=email&filterValue={{email}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "auth",
+                    "admin",
+                    "list-users"
+                  ],
+                  "query": [
+                    {
+                      "key": "filterField",
+                      "value": "email"
+                    },
+                    {
+                      "key": "filterValue",
+                      "value": "{{email}}"
+                    }
+                  ]
+                },
+                "description": "Lists users with search, filters and offset pagination. Here it finds the user created by **Auth → Sign up** and saves its id as `userId`."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"users\": [\n    {\n      \"id\": \"6ae5767fadba171e957b79d3\",\n      \"name\": \"alice\",\n      \"email\": \"alice@example.com\",\n      \"emailVerified\": false,\n      \"image\": null,\n      \"role\": \"user\",\n      \"banned\": false,\n      \"banReason\": null,\n      \"banExpires\": null,\n      \"createdAt\": \"2026-10-31T05:02:55.594Z\",\n      \"updatedAt\": \"2026-10-31T05:02:55.594Z\"\n    }\n  ],\n  \"total\": 1\n}"
+            }
+          ]
+        },
+        {
+          "name": "Ban user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"user is banned\", () => pm.expect(pm.response.json().user.banned).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/admin/ban-user",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "admin",
+                "ban-user"
+              ]
+            },
+            "description": "Bans the user and deletes all of their sessions. Leave out `banExpiresIn` (seconds) for a permanent ban. The user's next write request returns 401 right away. Reads can use the cached `session_data` cookie for up to 5 minutes.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"banReason\": \"Spamming\",\n  \"banExpiresIn\": 604800\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/auth/admin/ban-user",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "auth",
+                    "admin",
+                    "ban-user"
+                  ]
+                },
+                "description": "Bans the user and deletes all of their sessions. Leave out `banExpiresIn` (seconds) for a permanent ban. The user's next write request returns 401 right away. Reads can use the cached `session_data` cookie for up to 5 minutes.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"banReason\": \"Spamming\",\n  \"banExpiresIn\": 604800\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"user\": {\n    \"id\": \"6ae5767fadba171e957b79d3\",\n    \"name\": \"alice\",\n    \"email\": \"alice@example.com\",\n    \"emailVerified\": false,\n    \"image\": null,\n    \"role\": \"user\",\n    \"banned\": true,\n    \"banReason\": \"Spamming\",\n    \"banExpires\": \"2026-11-07T05:02:56.456Z\",\n    \"createdAt\": \"2026-10-31T05:02:55.594Z\",\n    \"updatedAt\": \"2026-10-31T05:02:55.594Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "List user sessions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"no sessions after the ban\", () => pm.expect(pm.response.json().sessions).to.have.lengthOf(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/admin/list-user-sessions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "admin",
+                "list-user-sessions"
+              ]
+            },
+            "description": "Lists the user's active sessions. Empty after a ban.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/auth/admin/list-user-sessions",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "auth",
+                    "admin",
+                    "list-user-sessions"
+                  ]
+                },
+                "description": "Lists the user's active sessions. Empty after a ban.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userId\": \"{{userId}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"sessions\": []\n}"
+            }
+          ]
+        },
+        {
+          "name": "Unban user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"user is not banned\", () => pm.expect(pm.response.json().user.banned).to.eql(false));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/admin/unban-user",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "admin",
+                "unban-user"
+              ]
+            },
+            "description": "Lifts the ban so the user can log in again.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Session",
       "description": "Ends the session. Kept last so the Collection Runner stays logged in for the requests above.",
       "item": [
@@ -1780,7 +2062,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"status is 204\", () => pm.response.to.have.status(204));"
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));"
                 ]
               }
             }
@@ -1789,7 +2071,7 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/auth/logout",
+              "raw": "{{baseUrl}}/api/v1/auth/sign-out",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1797,19 +2079,19 @@
                 "api",
                 "v1",
                 "auth",
-                "logout"
+                "sign-out"
               ]
             },
-            "description": "Clears the `session` cookie. Always returns 204, even without a session."
+            "description": "Deletes the session and clears both cookies."
           },
           "response": [
             {
-              "name": "204 No Content",
+              "name": "200 OK",
               "originalRequest": {
                 "method": "POST",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/api/v1/auth/logout",
+                  "raw": "{{baseUrl}}/api/v1/auth/sign-out",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -1817,33 +2099,34 @@
                     "api",
                     "v1",
                     "auth",
-                    "logout"
+                    "sign-out"
                   ]
                 },
-                "description": "Clears the `session` cookie. Always returns 204, even without a session."
+                "description": "Deletes the session and clears both cookies."
               },
-              "status": "No Content",
-              "code": 204,
+              "status": "OK",
+              "code": 200,
               "_postman_previewlanguage": "json",
               "header": [
                 {
                   "key": "Content-Type",
-                  "value": "application/json; charset=utf-8"
+                  "value": "application/json"
                 }
               ],
-              "body": ""
+              "body": "{\n  \"success\": true\n}"
             }
           ]
         },
         {
-          "name": "Current user after logout",
+          "name": "Current session after logout",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"status is 401\", () => pm.response.to.have.status(401));"
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"no session\", () => pm.expect(pm.response.json()).to.eql(null));"
                 ]
               }
             }
@@ -1852,7 +2135,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/auth/me",
+              "raw": "{{baseUrl}}/api/v1/auth/get-session",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1860,19 +2143,19 @@
                 "api",
                 "v1",
                 "auth",
-                "me"
+                "get-session"
               ]
             },
             "description": "Confirms the session is gone."
           },
           "response": [
             {
-              "name": "401 Not authenticated",
+              "name": "200 OK",
               "originalRequest": {
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/api/v1/auth/me",
+                  "raw": "{{baseUrl}}/api/v1/auth/get-session",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -1880,25 +2163,36 @@
                     "api",
                     "v1",
                     "auth",
-                    "me"
+                    "get-session"
                   ]
                 },
                 "description": "Confirms the session is gone."
               },
-              "status": "Unauthorized",
-              "code": 401,
+              "status": "OK",
+              "code": 200,
               "_postman_previewlanguage": "json",
               "header": [
                 {
                   "key": "Content-Type",
-                  "value": "application/json; charset=utf-8"
+                  "value": "application/json"
                 }
               ],
-              "body": "{\n  \"error\": \"Not authenticated\"\n}"
+              "body": "null"
             }
           ]
         }
       ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.request.headers.upsert({ key: \"Origin\", value: pm.collectionVariables.get(\"origin\") });"
+        ]
+      }
     }
   ]
 }

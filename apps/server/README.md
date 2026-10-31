@@ -1,6 +1,6 @@
 # Server
 
-Express API for the AI Customer Support Agent. It handles authentication, stores conversations in MongoDB and generates replies with OpenRouter.
+Express API for the AI Customer Support Agent. It handles authentication with [Better Auth](https://www.better-auth.com), stores conversations in MongoDB and generates replies with OpenRouter.
 
 ## Setup
 
@@ -19,16 +19,18 @@ The API runs at http://localhost:4000. `GET /api/health` returns `{"status":"ok"
 | Variable             | Required | Default                          | Description                                                   |
 | -------------------- | -------- | -------------------------------- | ------------------------------------------------------------- |
 | `MONGO_URI`          | Yes      |                                  | MongoDB connection string                                     |
-| `JWT_SECRET`         | Yes      |                                  | Secret for signing session tokens, at least 32 characters     |
+| `BETTER_AUTH_SECRET` | Yes      |                                  | Secret that signs and encrypts session cookies, at least 32 characters |
+| `BETTER_AUTH_URL`    | Yes      |                                  | Public URL of the API, for example `http://localhost:4000`    |
 | `OPENROUTER_API_KEY` | Yes      |                                  | OpenRouter API key                                            |
 | `CLIENT_ORIGIN`      | Yes      |                                  | URL of the frontend, allowed by CORS                          |
 | `OPENROUTER_MODEL`   | No       | `google/gemma-4-26b-a4b-it:free` | Model used for replies                                        |
 | `NODE_ENV`           | No       | `development`                    | Set to `production` for JSON logs and generic error messages  |
 | `PORT`               | No       | `4000`                           | Port the server listens on                                    |
 | `LOG_LEVEL`          | No       | `info`                           | Pino log level                                                |
-| `COOKIE_SAME_SITE`   | No       | `lax`                            | Set to `none` only if the frontend is on a different site     |
 
 The server validates these at startup and exits with a list of problems if any are missing or invalid.
+
+The `seed:admin` script also reads `ADMIN_EMAIL`, `ADMIN_PASSWORD` (at least 8 characters) and the optional `ADMIN_NAME` (default `Admin`).
 
 ## Scripts
 
@@ -37,21 +39,49 @@ The server validates these at startup and exits with a list of problems if any a
 | `bun run dev`             | Start in watch mode                            |
 | `bun run build`           | Compile to `dist/`                             |
 | `bun run start`           | Run the compiled build                         |
+| `bun run seed:admin`      | Create the admin account from `ADMIN_EMAIL` and `ADMIN_PASSWORD`, if it doesn't exist. Needs a build |
 | `bun run check`           | Type check and lint                            |
 | `bun run typecheck:watch` | Type check on every file change                |
 
 ## API reference
 
-All endpoints are under `/api/v1`. Requests and responses use JSON. Protected routes need the `session` cookie, which is set on signup and login.
+All endpoints are under `/api/v1`. Requests and responses use JSON. Protected routes need the session cookies, which are set on sign up and log in.
 
 ### Auth
 
-| Method | Endpoint              | Body                  | Response                    |
-| ------ | --------------------- | --------------------- | --------------------------- |
-| POST   | `/api/v1/auth/signup` | `{ email, password }` | `201 { user }`              |
-| POST   | `/api/v1/auth/login`  | `{ email, password }` | `200 { user }`              |
-| POST   | `/api/v1/auth/logout` |                       | `204`                       |
-| GET    | `/api/v1/auth/me`     |                       | `200 { user }` (protected)  |
+Better Auth serves every route under `/api/v1/auth`. The main ones:
+
+| Method | Endpoint                         | Body                        | Response                  |
+| ------ | -------------------------------- | --------------------------- | ------------------------- |
+| POST   | `/api/v1/auth/sign-up/email`     | `{ email, password, name }` | `200 { token, user }`     |
+| POST   | `/api/v1/auth/sign-in/email`     | `{ email, password }`       | `200 { token, user }`     |
+| POST   | `/api/v1/auth/sign-out`          |                             | `200 { success }`         |
+| GET    | `/api/v1/auth/get-session`       |                             | `200 { session, user }` or `null` |
+
+Requests that carry cookies must also send an `Origin` header that matches `CLIENT_ORIGIN`, otherwise Better Auth rejects them with `403`. Browsers do this automatically. With curl or Postman, add the header yourself.
+
+### Admin
+
+The [admin plugin](https://www.better-auth.com/docs/plugins/admin) adds user management for users with the `admin` role. Log in as the admin with `/sign-in/email`, then call:
+
+| Method | Endpoint                                  | Body                                     |
+| ------ | ----------------------------------------- | ---------------------------------------- |
+| GET    | `/api/v1/auth/admin/list-users`           | Query: `searchValue`, `filterField`, `filterValue`, `limit`, `offset` |
+| POST   | `/api/v1/auth/admin/ban-user`             | `{ userId, banReason?, banExpiresIn? }`  |
+| POST   | `/api/v1/auth/admin/unban-user`           | `{ userId }`                             |
+| POST   | `/api/v1/auth/admin/list-user-sessions`   | `{ userId }`                             |
+| POST   | `/api/v1/auth/admin/revoke-user-sessions` | `{ userId }`                             |
+| POST   | `/api/v1/auth/admin/set-role`             | `{ userId, role }`                       |
+| POST   | `/api/v1/auth/admin/remove-user`          | `{ userId }`                             |
+
+Banning a user deletes all of their sessions and blocks new logins until the ban is lifted or `banExpiresIn` seconds pass. A banned user's next write request (`POST`, `PATCH`, `DELETE`) returns `401` right away, because writes always check the session and the user's ban status in the database. Reads can use the 5-minute session cache, so they stop working once it expires.
+
+```bash
+curl -c admin.txt -H 'Origin: http://localhost:5173' -H 'Content-Type: application/json' \
+  -d '{"email":"admin@example.com","password":"..."}' http://localhost:4000/api/v1/auth/sign-in/email
+curl -b admin.txt -H 'Origin: http://localhost:5173' -H 'Content-Type: application/json' \
+  -d '{"userId":"...","banReason":"Spam"}' http://localhost:4000/api/v1/auth/admin/ban-user
+```
 
 ### Chat
 
@@ -92,31 +122,39 @@ type Message = { id: string; conversationId: string; role: "user" | "assistant";
 
 ### Validation
 
-- Passwords must be 8 to 72 characters.
+- Passwords must be 8 to 128 characters.
 - Messages must be 1 to 4000 characters.
 - Titles must be 1 to 100 characters.
 - Requesting a conversation that belongs to another user returns `404`.
 
 ### Errors
 
-Errors return `{ "error": "message" }`. Validation errors also include `details.fieldErrors`.
+Chat errors return `{ "error": "message" }`. Validation errors also include `details.fieldErrors`. Auth errors from Better Auth return `{ "message": "...", "code": "..." }`.
 
 | Status | Meaning                                         |
 | ------ | ----------------------------------------------- |
 | 400    | Invalid request body or parameter               |
 | 401    | Not logged in, or wrong email or password       |
+| 403    | Banned user signing in, not an admin, or untrusted `Origin` |
 | 404    | Route or conversation not found                 |
-| 409    | Email already registered                        |
+| 422    | Email already registered                        |
 | 429    | Too many requests                               |
 | 502    | The AI provider failed                          |
 | 503    | The AI provider is busy                         |
 
-Rate limits are 100 requests per 15 minutes per IP, and 20 per 15 minutes for login and signup.
+Rate limits are 100 requests per 15 minutes per IP for the whole API. In production, Better Auth also limits each IP to 3 sign-in or sign-up attempts per 10 seconds per path. It stores those counters in MongoDB, so the limit holds across serverless instances.
 
 ## Security
 
-- Passwords are hashed with bcrypt.
-- Sessions are JWTs stored in an httpOnly `session` cookie that lasts 7 days. The cookie is `Secure` over HTTPS, and its `SameSite` value comes from `COOKIE_SAME_SITE`.
+- Passwords are hashed with scrypt by Better Auth.
+- The session works like a refresh token and access token pair, kept in two httpOnly, `SameSite=Lax` cookies that are `Secure` when `BETTER_AUTH_URL` uses HTTPS:
+  - `better-auth.session_token` is the session, stored in MongoDB. It lasts 7 days, is extended once a day while in use, and can be revoked.
+  - `better-auth.session_data` is a 5-minute JWE (A256CBC-HS512), encrypted with `BETTER_AUTH_SECRET`. While it's valid, requests are authenticated without a database lookup.
+- `requireAuth` calls `auth.api.getSession` and forwards any refreshed cookies, so the server renews both cookies on normal API calls. The browser never handles tokens, so concurrent requests can't race to refresh them.
+- Reads (`GET`) are authenticated from the session cache. Writes pass `disableCookieCache: true`, as the [docs recommend for sensitive operations](https://www.better-auth.com/docs/concepts/session-management#cookie-cache), so a ban, a revoked session or a sign-out on another device blocks writes immediately. Better Auth's own admin endpoints read the session from the database the same way.
+- CSRF: Better Auth checks the `Origin` of its own routes against `trustedOrigins`. `requireAuth` applies the same check (`isTrustedOrigin`) to chat writes, so a request from another origin, even a sibling subdomain that receives the `SameSite=Lax` cookies, gets `403`.
+- `requireAuth` also rejects users with an active ban, so a session created by a login that raced with a ban can't be used for writes.
+- Better Auth's MongoDB adapter doesn't create indexes for its core collections, so the server creates them at startup from Better Auth's schema. They match the [recommended indexes](https://www.better-auth.com/docs/guides/optimizing-for-performance#recommended-fields-to-index). This includes the unique index on `user.email`, which keeps concurrent sign-ups from creating duplicate accounts.
 - Helmet sets security headers, and CORS only allows `CLIENT_ORIGIN`.
 - Users can only read or change their own conversations. Any other conversation returns `404`.
 
@@ -128,12 +166,13 @@ When a message is sent, the server loads the last 20 messages of the conversatio
 
 ```
 src/
-  auth/          signup, login, logout and session handling
+  auth/          Better Auth setup and the requireAuth middleware
   chat/          messages, conversation history, titles and pagination
   llm/           OpenRouter client and system prompt
   models/        Mongoose models for users, conversations and messages
   middleware/    rate limiting, request logging and error handling
-  config/        environment, logger and database setup
+  config/        environment, logger, MongoDB client and database setup
+  scripts/       seed-admin script
   app.ts         Express app
   server.ts      entry point for Docker and local development
   vercel.ts      entry point for Vercel
