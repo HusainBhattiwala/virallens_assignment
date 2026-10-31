@@ -30,7 +30,17 @@ The app runs at http://localhost:5173.
 | `bun run build`   | Type check and build for production  |
 | `bun run preview` | Preview the production build         |
 | `bun run check`   | Type check and lint                  |
+| `bun run test`    | Run the tests                        |
 | `bun run format`  | Format the code with Prettier        |
+
+## Tests
+
+The tests use [Vitest](https://vitest.dev) with jsdom and [Testing Library](https://testing-library.com), and they stub `fetch` or mock the API modules, so no server is needed.
+
+- `src/lib/api.test.ts`: how requests are sent and how errors, network failures and unexpected responses turn into `ApiError`
+- `src/features/auth/route-guards.test.tsx`: redirects for guests and logged-in users, and the retry screen when the server is down
+- `src/features/chat/chat-store.test.ts`: sending a message, keeping a failed message for retry, ending the session on `401`, and dropping a reply that arrives after another user logs in
+- `src/features/chat/composer.test.tsx`: Enter sends, Shift+Enter adds a new line, and Enter during IME composition doesn't send
 
 ## Routes
 

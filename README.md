@@ -51,6 +51,9 @@ To run it with Docker instead, fill in `apps/server/.env` and run `docker compos
 | `bun run dev`   | Start the client and server in watch mode |
 | `bun run build` | Build both apps                           |
 | `bun run check` | Type check and lint both apps             |
+| `bun run test`  | Run the client and server tests           |
+
+The tests run with [Vitest](https://vitest.dev). The root `vitest.config.ts` treats each app as a [project](https://vitest.dev/guide/projects), so one command runs both apps' tests with each app's own config. Use `bun run test`, not `bun test`, because `bun test` starts Bun's own test runner instead of Vitest.
 
 ## Documentation
 

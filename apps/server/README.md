@@ -41,7 +41,15 @@ The `seed:admin` script also reads `ADMIN_EMAIL`, `ADMIN_PASSWORD` (at least 8 c
 | `bun run start`           | Run the compiled build                         |
 | `bun run seed:admin`      | Create the admin account from `ADMIN_EMAIL` and `ADMIN_PASSWORD`, if it doesn't exist. Needs a build |
 | `bun run check`           | Type check and lint                            |
+| `bun run test`            | Run the tests                                  |
 | `bun run typecheck:watch` | Type check on every file change                |
+
+## Tests
+
+The tests send real HTTP requests to the Express app with [Supertest](https://github.com/forwardemail/supertest). Better Auth runs for real, and only OpenRouter is mocked. Each run starts a single-node MongoDB replica set in memory with [mongodb-memory-server](https://github.com/typegoose/mongodb-memory-server), because chat writes use transactions, and empties every collection before each test. The first run downloads a MongoDB binary of about 80 MB. Tests never read `.env`, so they can't touch your Atlas database.
+
+- `src/auth/session.test.ts`: requests without a session, untrusted origins, logout and banned users
+- `src/chat/chat.routes.test.ts`: sending and continuing a conversation, nothing stored when the AI fails, validation, conversation privacy between users, and message editing
 
 ## API reference
 
