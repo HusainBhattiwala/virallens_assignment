@@ -2,12 +2,15 @@ import { Router } from "express";
 import { getUser, requireAuth } from "@/auth/session.js";
 import {
   conversationParamsSchema,
+  editMessageSchema,
   listConversationsQuerySchema,
+  messageParamsSchema,
   renameConversationSchema,
   sendMessageSchema,
 } from "./chat.schema.js";
 import {
   deleteConversation,
+  editMessage,
   generateConversationTitle,
   getConversation,
   listConversations,
@@ -50,4 +53,11 @@ chatRouter.delete("/history/:conversationId", async (req, res) => {
 chatRouter.post("/history/:conversationId/title", async (req, res) => {
   const { conversationId } = conversationParamsSchema.parse(req.params);
   res.json({ conversation: await generateConversationTitle(getUser(req).id, conversationId) });
+});
+
+chatRouter.patch("/history/:conversationId/messages/:messageId", async (req, res) => {
+  const { conversationId, messageId } = messageParamsSchema.parse(req.params);
+  const { message } = editMessageSchema.parse(req.body);
+  const { id, email } = getUser(req);
+  res.json(await editMessage({ userId: id, customerEmail: email, conversationId, messageId, content: message }));
 });

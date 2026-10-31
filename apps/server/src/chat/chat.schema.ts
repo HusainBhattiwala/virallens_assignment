@@ -2,17 +2,28 @@ import { isObjectIdOrHexString } from "mongoose";
 import { z } from "zod";
 import { conversationCursorSchema } from "./conversation-cursor.js";
 
-const objectId = z.stringFormat("objectid", (value) => isObjectIdOrHexString(value), {
-  error: "Invalid conversation id",
-});
+const objectId = (resource: string) =>
+  z.stringFormat("objectid", (value) => isObjectIdOrHexString(value), {
+    error: `Invalid ${resource} id`,
+  });
+
+const messageContent = z.string().trim().min(1).max(4000);
 
 export const sendMessageSchema = z.object({
-  message: z.string().trim().min(1).max(4000),
-  conversationId: objectId.optional(),
+  message: messageContent,
+  conversationId: objectId("conversation").optional(),
+});
+
+export const editMessageSchema = z.object({
+  message: messageContent,
 });
 
 export const conversationParamsSchema = z.object({
-  conversationId: objectId,
+  conversationId: objectId("conversation"),
+});
+
+export const messageParamsSchema = conversationParamsSchema.extend({
+  messageId: objectId("message"),
 });
 
 export const listConversationsQuerySchema = z.object({

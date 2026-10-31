@@ -4,6 +4,7 @@ const conversationSchema = new Schema(
   {
     user: { type: Schema.Types.ObjectId, required: true },
     title: { type: String, required: true, trim: true },
+    messageCount: { type: Number, required: true, default: 0, min: 0 },
   },
   { timestamps: true },
 );
