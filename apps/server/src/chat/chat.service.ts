@@ -1,6 +1,5 @@
 import createHttpError from "http-errors";
 import { Types } from "mongoose";
-import { findUser } from "@/auth/auth.service.js";
 import { type ChatMessage, generateReply, generateTitle } from "@/llm/openrouter.js";
 import { Conversation, type ConversationRecord } from "@/models/conversation.model.js";
 import { Message, type MessageRecord, type MessageRole } from "@/models/message.model.js";
@@ -44,6 +43,7 @@ interface ListConversationsInput {
 
 interface SendMessageInput {
   userId: string;
+  customerEmail: string;
   conversationId: string | undefined;
   content: string;
 }
@@ -170,15 +170,13 @@ export const generateConversationTitle = async (
 
 export const sendMessage = async ({
   userId,
+  customerEmail,
   conversationId,
   content,
 }: SendMessageInput): Promise<ConversationDetailResponse> => {
-  const [user, existing] = await Promise.all([
-    findUser(userId),
-    conversationId ? findOwnedConversation(userId, conversationId) : undefined,
-  ]);
+  const existing = conversationId ? await findOwnedConversation(userId, conversationId) : undefined;
   const context = existing ? await loadRecentContext(existing._id) : [];
-  const reply = await generateReply(user.email, [...context, { role: "user", content }]);
+  const reply = await generateReply(customerEmail, [...context, { role: "user", content }]);
 
   const targetId = existing?._id ?? new Types.ObjectId();
   const messages = await Message.insertMany([

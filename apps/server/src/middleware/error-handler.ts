@@ -1,3 +1,4 @@
+import { APIError } from "better-auth/api";
 import type { ErrorRequestHandler, RequestHandler } from "express";
 import createHttpError, { isHttpError } from "http-errors";
 import { z } from "zod";
@@ -10,6 +11,15 @@ export const notFound: RequestHandler = (req, _res, next) => {
   next(createHttpError(404, `Route ${req.method} ${req.originalUrl} not found`));
 };
 
+const toStatus = (error: Error): number => {
+  if (isHttpError(error)) return error.status;
+  if (error instanceof APIError) return error.statusCode;
+  return 500;
+};
+
+const isExposed = (error: Error, status: number): boolean =>
+  isHttpError(error) ? error.expose : error instanceof APIError && status < 500;
+
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   const error = toError(err);
 
@@ -18,9 +28,8 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     return;
   }
 
-  const status = isHttpError(error) ? error.status : 500;
-  const isExposed = isHttpError(error) && error.expose;
+  const status = toStatus(error);
 
   if (status >= 500) res.err = error;
-  res.status(status).json({ error: isExposed || !isProduction ? error.message : INTERNAL_ERROR_MESSAGE });
+  res.status(status).json({ error: isExposed(error, status) || !isProduction ? error.message : INTERNAL_ERROR_MESSAGE });
 };

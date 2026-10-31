@@ -1,11 +1,19 @@
 import mongoose from "mongoose";
-import { env } from "./env.js";
+import { createAuthIndexes } from "@/auth/auth.js";
+import { mongoClient } from "./mongo-client.js";
 
-const { MONGO_URI } = env;
+mongoose.set("autoIndex", false);
+
+const createModelIndexes = async (): Promise<void> => {
+  await Promise.all(mongoose.modelNames().map((name) => mongoose.model(name).createIndexes()));
+};
 
 export const connectDatabase = async (): Promise<void> => {
-  await mongoose.connect(MONGO_URI, { autoIndex: false });
-  await Promise.all(mongoose.modelNames().map((name) => mongoose.model(name).createIndexes()));
+  await mongoClient.connect();
+  if (mongoose.connection.readyState === mongoose.ConnectionStates.disconnected) {
+    mongoose.connection.setClient(mongoClient);
+  }
+  await Promise.all([createModelIndexes(), createAuthIndexes()]);
 };
 
 export const disconnectDatabase = async (): Promise<void> => {

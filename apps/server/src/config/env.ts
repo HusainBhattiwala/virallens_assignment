@@ -6,8 +6,8 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   MONGO_URI: z.string().min(1),
   CLIENT_ORIGIN: z.url(),
-  JWT_SECRET: z.string().min(32),
-  COOKIE_SAME_SITE: z.enum(["lax", "strict", "none"]).default("lax"),
+  BETTER_AUTH_SECRET: z.string().min(32),
+  BETTER_AUTH_URL: z.url(),
   OPENROUTER_API_KEY: z.string().min(1),
   OPENROUTER_MODEL: z.string().min(1).default("google/gemma-4-26b-a4b-it:free"),
 });

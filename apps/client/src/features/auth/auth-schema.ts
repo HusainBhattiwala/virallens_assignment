@@ -12,7 +12,7 @@ export const signupSchema = z.object({
   password: z
     .string()
     .min(8, "Use at least 8 characters")
-    .max(72, "Use 72 characters or fewer"),
+    .max(128, "Use 128 characters or fewer"),
 })
 
 export const loginSchema = z.object({

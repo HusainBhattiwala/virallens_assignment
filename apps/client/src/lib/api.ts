@@ -8,6 +8,9 @@ if (!API_URL) {
   )
 }
 
+export const AUTH_API_URL = new URL(`${API_URL}/auth`, window.location.origin)
+  .href
+
 const NETWORK_ERROR_MESSAGE =
   "Can't reach the server. Check your connection and try again."
 const UNEXPECTED_RESPONSE_MESSAGE =
@@ -37,6 +40,14 @@ export class ApiError extends Error {
   }
 }
 
+export const networkError = (): ApiError =>
+  new ApiError(0, NETWORK_ERROR_MESSAGE)
+
+export const toApiErrorWith = (
+  status: number,
+  message: string | undefined
+): ApiError => new ApiError(status, message ?? UNKNOWN_ERROR_MESSAGE)
+
 interface RequestOptions {
   method?: "GET" | "POST" | "PATCH" | "DELETE"
   body?: unknown
@@ -55,7 +66,7 @@ const send = async (
       body: body === undefined ? undefined : JSON.stringify(body),
     })
   } catch {
-    throw new ApiError(0, NETWORK_ERROR_MESSAGE)
+    throw networkError()
   }
 }
 

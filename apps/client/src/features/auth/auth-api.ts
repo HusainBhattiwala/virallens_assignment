@@ -1,45 +1,64 @@
-import { z } from "zod"
-import { apiCommand, apiRequest, isUnauthorized } from "@/lib/api"
+import { createAuthClient } from "better-auth/client"
+import { AUTH_API_URL, networkError, toApiErrorWith } from "@/lib/api"
 
-const userSchema = z.object({
-  id: z.string(),
-  email: z.string(),
-})
+const authClient = createAuthClient({ baseURL: AUTH_API_URL })
 
-const userResponseSchema = z.object({ user: userSchema })
-
-export type User = z.infer<typeof userSchema>
+export interface User {
+  id: string
+  email: string
+}
 
 export interface Credentials {
   email: string
   password: string
 }
 
-export const fetchSession = async (): Promise<User | null> => {
+interface AuthResult<T> {
+  data: T | null
+  error: { status: number; message?: string | undefined } | null
+}
+
+const callAuth = async <T>(
+  request: () => Promise<AuthResult<T>>
+): Promise<T | null> => {
+  let result: AuthResult<T>
   try {
-    const { user } = await apiRequest("/auth/me", userResponseSchema)
-    return user
-  } catch (error) {
-    if (isUnauthorized(error)) return null
-    throw error
+    result = await request()
+  } catch {
+    throw networkError()
   }
+  if (result.error) {
+    throw toApiErrorWith(result.error.status, result.error.message)
+  }
+  return result.data
 }
 
-export const login = async (credentials: Credentials): Promise<User> => {
-  const { user } = await apiRequest("/auth/login", userResponseSchema, {
-    method: "POST",
-    body: credentials,
-  })
-  return user
+const toUser = ({ id, email }: User): User => ({ id, email })
+
+const requireUser = (data: { user: User } | null): User => {
+  if (!data) throw toApiErrorWith(500, undefined)
+  return toUser(data.user)
 }
 
-export const signup = async (credentials: Credentials): Promise<User> => {
-  const { user } = await apiRequest("/auth/signup", userResponseSchema, {
-    method: "POST",
-    body: credentials,
-  })
-  return user
+const nameFromEmail = (email: string): string => email.split("@")[0] ?? email
+
+export const fetchSession = async (): Promise<User | null> => {
+  const session = await callAuth(() => authClient.getSession())
+  return session ? toUser(session.user) : null
 }
 
-export const logout = (): Promise<void> =>
-  apiCommand("/auth/logout", { method: "POST" })
+export const login = async ({ email, password }: Credentials): Promise<User> =>
+  requireUser(
+    await callAuth(() => authClient.signIn.email({ email, password }))
+  )
+
+export const signup = async ({ email, password }: Credentials): Promise<User> =>
+  requireUser(
+    await callAuth(() =>
+      authClient.signUp.email({ email, password, name: nameFromEmail(email) })
+    )
+  )
+
+export const logout = async (): Promise<void> => {
+  await callAuth(() => authClient.signOut())
+}

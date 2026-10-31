@@ -39,6 +39,6 @@ export const requestLogger = pinoHttp<Request, Response>({
   customSuccessMessage: (req, res, responseTime) =>
     `${describeRequest(req, res)} ${String(Math.round(responseTime))}ms`,
   customErrorMessage: (req, res, error) => `${describeRequest(req, res)} ${describeError(error)}`,
-  customSuccessObject: (req) => ({ userId: req.userId }),
-  customErrorObject: (req, _res, error) => ({ userId: req.userId, ...toErrorDetails(error) }),
+  customSuccessObject: (req) => ({ userId: req.user?.id }),
+  customErrorObject: (req, _res, error) => ({ userId: req.user?.id, ...toErrorDetails(error) }),
 });

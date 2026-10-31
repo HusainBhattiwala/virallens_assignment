@@ -1,54 +1,40 @@
-import type { CookieOptions, Request, RequestHandler, Response } from "express";
+import { fromNodeHeaders } from "better-auth/node";
+import type { Request, RequestHandler } from "express";
 import createHttpError from "http-errors";
-import jwt from "jsonwebtoken";
-import { env } from "@/config/env.js";
-import { SESSION_COOKIE, sessionCookiesSchema } from "./auth.schema.js";
+import { auth, type AuthUser } from "./auth.js";
 
-const { JWT_SECRET, COOKIE_SAME_SITE } = env;
-const JWT_ALGORITHM = "HS256";
-const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
-const cookieOptionsFor = (res: Response): CookieOptions => ({
-  httpOnly: true,
-  secure: res.req.secure,
-  sameSite: COOKIE_SAME_SITE,
-  path: "/",
-});
+const unauthenticated = (): Error => createHttpError(401, "Not authenticated");
 
-export const unauthenticated = (): Error => createHttpError(401, "Not authenticated");
-
-const readUserId = (token: string): string | undefined => {
-  try {
-    const payload = jwt.verify(token, JWT_SECRET, { algorithms: [JWT_ALGORITHM] });
-    return typeof payload === "string" ? undefined : payload.sub;
-  } catch {
-    return undefined;
-  }
+const assertTrustedOrigin = async (req: Request): Promise<void> => {
+  const origin = req.get("origin") ?? req.get("referer");
+  const context = await auth.$context;
+  if (!origin || !context.isTrustedOrigin(origin)) throw createHttpError(403, "Untrusted origin");
 };
 
-export const startSession = (res: Response, userId: string): void => {
-  const token = jwt.sign({}, JWT_SECRET, {
-    algorithm: JWT_ALGORITHM,
-    subject: userId,
-    expiresIn: SESSION_TTL_SECONDS,
+const isBanned = ({ banned, banExpires }: AuthUser): boolean =>
+  banned === true && (!banExpires || new Date(banExpires).getTime() > Date.now());
+
+export const requireAuth: RequestHandler = async (req, res, next) => {
+  const isSafeMethod = SAFE_METHODS.has(req.method);
+  if (!isSafeMethod) await assertTrustedOrigin(req);
+
+  const { headers, response: session } = await auth.api.getSession({
+    headers: fromNodeHeaders(req.headers),
+    query: { disableCookieCache: !isSafeMethod },
+    returnHeaders: true,
   });
-  res.cookie(SESSION_COOKIE, token, { ...cookieOptionsFor(res), maxAge: SESSION_TTL_SECONDS * 1000 });
-};
 
-export const endSession = (res: Response): void => {
-  res.clearCookie(SESSION_COOKIE, cookieOptionsFor(res));
-};
+  const cookies = headers.getSetCookie();
+  if (cookies.length > 0) res.append("Set-Cookie", cookies);
+  if (!session || isBanned(session.user)) throw unauthenticated();
 
-export const requireAuth: RequestHandler = (req, _res, next) => {
-  const token = sessionCookiesSchema.safeParse(req.cookies).data?.[SESSION_COOKIE];
-  const userId = token ? readUserId(token) : undefined;
-  if (!userId) throw unauthenticated();
-
-  req.userId = userId;
+  req.user = session.user;
   next();
 };
 
-export const getUserId = (req: Request): string => {
-  if (!req.userId) throw unauthenticated();
-  return req.userId;
+export const getUser = (req: Request): AuthUser => {
+  if (!req.user) throw unauthenticated();
+  return req.user;
 };
