@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "bun install --frozen-lockfile",
-  "buildCommand": "bun run build",
+  "buildCommand": "bun run build && bun run --filter @support-agent/server seed:admin",
   "outputDirectory": "apps/client/dist",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" },

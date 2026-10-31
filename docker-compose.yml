@@ -12,6 +12,7 @@ services:
       NODE_ENV: production
       PORT: "4000"
       CLIENT_ORIGIN: http://localhost:8080
+      BETTER_AUTH_URL: http://localhost:8080
     ports:
       - "4000:4000"
     healthcheck:
