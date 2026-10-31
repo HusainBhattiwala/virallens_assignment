@@ -3,13 +3,7 @@ import { useTheme } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
 
 export function ThemeToggle() {
-  const { setTheme } = useTheme()
-
-  const toggleTheme = () => {
-    setTheme(
-      document.documentElement.classList.contains("dark") ? "light" : "dark"
-    )
-  }
+  const { toggleTheme } = useTheme()
 
   return (
     <Button

@@ -12,7 +12,7 @@ export type Theme = "dark" | "light" | "system"
 
 interface ThemeContextValue {
   theme: Theme
-  setTheme: (theme: Theme) => void
+  toggleTheme: () => void
 }
 
 const STORAGE_KEY = "theme"
@@ -72,10 +72,11 @@ interface ThemeProviderProps {
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>(readStoredTheme)
 
-  const setTheme = useCallback((nextTheme: Theme) => {
+  const toggleTheme = useCallback(() => {
+    const nextTheme = resolveTheme(theme) === "dark" ? "light" : "dark"
     storeTheme(nextTheme)
     setThemeState(nextTheme)
-  }, [])
+  }, [theme])
 
   useEffect(() => {
     applyTheme(theme)
@@ -102,7 +103,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     }
   }, [])
 
-  const value = useMemo(() => ({ theme, setTheme }), [theme, setTheme])
+  const value = useMemo(() => ({ theme, toggleTheme }), [theme, toggleTheme])
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
 }
